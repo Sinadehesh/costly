@@ -35,8 +35,11 @@ Mobile-first **Next.js web app** + Android companion service.
 - `docs/` — `06-architecture-v2.md` is current; docs 01–05 are the v1
   local-first Android plan, kept as the parking lot (villain voice &
   ethics specs there still inform v2 copy).
-- `mobile-native/` — parked v1 Expo scaffold; will be reworked into the
-  Android companion service (AccessibilityService + heartbeat client).
+- `android/` — the **native Kotlin companion app** (the real one):
+  Compose arming UI, `CostlyAccessibilityService` spy, `HeartbeatWorker`
+  dead man's switch, `HealthSyncWorker`. See `android/README.md`.
+- `mobile-native/` — superseded v1 Expo scaffold, kept only for the
+  design tokens; the companion app now lives in `android/`.
 - `CLAUDE.md` — v1 master prompt (superseded where it conflicts with
   `docs/06-architecture-v2.md`).
 
@@ -49,7 +52,8 @@ Mobile-first **Next.js web app** + Android companion service.
 | Dead man's switch: device heartbeat, breach sweep, contract cancel/renew | ✅ scaffolded |
 | Cron schedules (`web/vercel.json`: expire-holds, check-heartbeats) | ✅ |
 | UI: landing, 4-step onboarding (Stripe Elements vault), purgatory dashboard | ✅ scaffolded |
-| UI: live meter view (web overlay/widget) | ⬜ next |
+| Android companion (`android/`): arming UI, spy service, heartbeat + health-sync workers | ✅ scaffolded |
+| Android live overlay bubble (ticking meter over the vice app) | ⬜ next |
 | Android companion service (AccessibilityService + heartbeat worker) | ⬜ |
 | Companion app → health-minutes push wiring | ⬜ |
 | Breach warning email + reinstall-to-cure grace flow | ⬜ recommended |

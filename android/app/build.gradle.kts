@@ -1,0 +1,70 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
+}
+
+android {
+    namespace = "app.costly.companion"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "app.costly.companion"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 1
+        versionName = "0.1.0"
+
+        // Point the debug build at your local machine (adb reverse tcp:3000
+        // tcp:3000, or your LAN IP). Release should point at the deployed API.
+        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:3000/\"")
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            buildConfigField("String", "API_BASE_URL", "\"https://YOUR-DEPLOYMENT.vercel.app/\"")
+        }
+    }
+
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+dependencies {
+    val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
+    implementation(composeBom)
+    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.material3:material3")
+
+    // Background work — the dead man's switch and health sync
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
+
+    // Health Connect — on-device walking data (no server can poll this)
+    implementation("androidx.health.connect:connect-client:1.1.0-rc02")
+
+    // Network
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-moshi:2.11.0")
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+}

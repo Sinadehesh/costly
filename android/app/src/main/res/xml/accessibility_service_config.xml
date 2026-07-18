@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The spy's config. We need:
+  - TYPE_WINDOW_STATE_CHANGED to know which package is foregrounded.
+  - TYPE_VIEW_SCROLLED for idle detection (no scroll for 60s = paused).
+  flagRetrieveInteractiveWindows lets us read the active window's package
+  reliably across launcher transitions.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeViewScrolled"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows|flagReportViewIds"
+    android:canRetrieveWindowContent="true"
+    android:notificationTimeout="100"
+    android:description="@string/accessibility_description" />

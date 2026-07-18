@@ -1,0 +1,9 @@
+<resources>
+    <!-- Compose owns the real theming (ui/theme/Theme.kt). This is just the
+         launch/system theme so there's no white flash before Compose loads. -->
+    <style name="Theme.Costly" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#0B0D0A</item>
+        <item name="android:navigationBarColor">#0B0D0A</item>
+        <item name="android:windowBackground">#0B0D0A</item>
+    </style>
+</resources>

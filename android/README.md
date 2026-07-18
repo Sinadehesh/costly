@@ -13,9 +13,11 @@ it POSTs to the live Next.js API.
 | --- | --- | --- |
 | Arming UI | `ui/MainActivity.kt` | Bind a `userId`, walk the 3 permissions (Accessibility, Health Connect, battery exemption), manual "Sync my walk". |
 | The Spy | `spy/CostlyAccessibilityService.kt` | Detect foregrounded vice apps, run the idle-aware billable timer, POST session start/heartbeat/end. |
-| Dead man's switch | `work/HeartbeatWorker.kt` | 12h `PeriodicWorkRequest` → `POST /api/device/heartbeat`; opportunistic expedited pings on launch/boot. |
+| Dead man's switch | `work/HeartbeatWorker.kt` | 12h `PeriodicWorkRequest` → `POST /api/device/heartbeat`; opportunistic expedited pings on launch/boot; caches the meter config from the response. |
 | Sweat equity | `work/HealthSyncWorker.kt` | Read walking from Health Connect, POST cumulative minutes to the pending redemption task. |
-| Wiring | `CostlyApp.kt`, `BootReceiver.kt`, `net/`, `notify/`, `Prefs.kt` | App init, reboot re-arm, Retrofit client + DTOs, taunt notifications, local state. |
+| Live meter overlay | `overlay/CostlyOverlayService.kt`, `overlay/MeterOverlay.kt` | Foreground service hosting a Compose bubble in a `WindowManager` window; per-second punch-clock ticker. |
+| Meter bus | `spy/MeterState.kt` | In-process `StateFlow` the spy publishes and the overlay observes — one source of truth, no double-counting. |
+| Wiring | `CostlyApp.kt`, `BootReceiver.kt`, `net/`, `notify/`, `Prefs.kt` | App init, reboot re-arm, Retrofit client + DTOs, taunt notifications, local state + cached meter config. |
 
 ## How the spy bills (session lifecycle)
 
@@ -72,9 +74,36 @@ adb reverse tcp:3000 tcp:3000           # or set API_BASE_URL to your LAN/deploy
 defaults to `http://10.0.2.2:3000/` (emulator → host). Set the release
 URL before shipping an APK.
 
+## The live meter overlay
+
+`overlay/CostlyOverlayService` is a foreground service (Android 15+ requires
+one behind a persistent overlay) that hosts a Compose bubble in a
+`TYPE_APPLICATION_OVERLAY` window. The window is `FLAG_NOT_FOCUSABLE` +
+`FLAG_NOT_TOUCH_MODAL` so it never steals input from the app underneath, and
+drag-to-move lets the user flick it aside.
+
+Because a `ComposeView` added straight to `WindowManager` has no Activity
+behind it, `overlay/OverlayLifecycleOwner` supplies the three ViewTree owners
+Compose demands (Lifecycle, ViewModelStore, SavedStateRegistry) — without
+them Compose throws "ViewTreeLifecycleOwner not found".
+
+The overlay never re-derives billable time. The spy publishes an
+authoritative baseline to `MeterBus` every 5s (`activeSeconds` +
+`runningSince`, null while idle); `MeterOverlay` runs its own 1s ticker and
+interpolates from that baseline, snapping to truth on each publish — so the
+digits punch every second with no drift and no double-counting. Euros and
+hostage-% are computed on-device from the rate + anchor ladder cached from
+each `/api/device/heartbeat` response (`overlay/MeterMath`, pure/testable).
+
+Permission: `overlay/OverlayPermission` checks `canDrawOverlays` and bounces
+to settings; on Android 15 the arming UI first shows the "Allow restricted
+settings" warning for sideloaded installs (the toggle is hidden otherwise).
+The spy only starts the overlay once the permission is held — which is also
+the exemption that lets it start a foreground service from the background.
+
 ## Not wired yet
 
 - `DEVICE_API_SECRET` header on requests (backend `TODO(auth)` too) — the
   interceptor stub is in `net/Network.kt`.
-- Live overlay bubble (the ticking meter over the vice app) — the backend
-  returns everything it needs; this is the next native surface.
+- Tap-to-expand on the bubble (session window remaining + "End session"
+  button) — `performClick` is already routed; the expanded content is TODO.

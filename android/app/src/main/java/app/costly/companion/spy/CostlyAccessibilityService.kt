@@ -1,6 +1,8 @@
 package app.costly.companion.spy
 
 import android.accessibilityservice.AccessibilityService
+import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import app.costly.companion.Prefs
@@ -8,6 +10,7 @@ import app.costly.companion.net.HeartbeatRequest
 import app.costly.companion.net.Network
 import app.costly.companion.net.StartSessionRequest
 import app.costly.companion.notify.Notifier
+import app.costly.companion.overlay.CostlyOverlayService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -55,7 +58,8 @@ class CostlyAccessibilityService : AccessibilityService() {
     private var sessionPackage: String? = null
     private var lastScrollAtMs: Long = 0
     private var lastTickMs: Long = 0
-    private var unsentActiveSeconds: Int = 0
+    private var unsentActiveSeconds: Int = 0     // pending flush to backend
+    private var sessionActiveSeconds: Int = 0    // running total, for the overlay baseline
     private var scrolledSinceFlush: Boolean = false
     private var msSinceFlush: Long = 0
 
@@ -118,8 +122,14 @@ class CostlyAccessibilityService : AccessibilityService() {
         lastScrollAtMs = now // opening the app counts as activity
         lastTickMs = now
         unsentActiveSeconds = 0
+        sessionActiveSeconds = 0
         scrolledSinceFlush = false
         msSinceFlush = 0
+
+        publishMeterLocked()
+        if (Settings.canDrawOverlays(this)) {
+            CostlyOverlayService.start(this)
+        }
 
         tickerJob?.cancel()
         tickerJob = scope.launch { tickLoop() }
@@ -151,6 +161,10 @@ class CostlyAccessibilityService : AccessibilityService() {
         sessionId = null
         sessionPackage = null
         unsentActiveSeconds = 0
+        sessionActiveSeconds = 0
+
+        MeterBus.clear()
+        CostlyOverlayService.stop(this)
     }
 
     // ── Billable-time loop ────────────────────────────────────────────────
@@ -161,6 +175,7 @@ class CostlyAccessibilityService : AccessibilityService() {
             mutex.withLock {
                 if (sessionId == null) return@withLock
                 accumulateLocked()
+                publishMeterLocked()
                 msSinceFlush += TICK_MS
                 if (msSinceFlush >= FLUSH_MS && flushLocked(force = false)) {
                     // Cap hit mid-session: shove the user out and settle up.
@@ -177,7 +192,33 @@ class CostlyAccessibilityService : AccessibilityService() {
         val elapsedMs = (now - lastTickMs).coerceAtLeast(0)
         lastTickMs = now
         val idle = now - lastScrollAtMs > IDLE_TIMEOUT_MS
-        if (!idle) unsentActiveSeconds += (elapsedMs / 1000L).toInt()
+        if (!idle) {
+            val secs = (elapsedMs / 1000L).toInt()
+            unsentActiveSeconds += secs
+            sessionActiveSeconds += secs
+        }
+    }
+
+    /**
+     * Publish the authoritative baseline for the overlay. The overlay ticks
+     * per-second on its own, but never invents billable time: runningSince is
+     * non-null only while the meter is actively counting (not idle), so the
+     * bubble advances between spy ticks and snaps to truth on each publish.
+     */
+    private fun publishMeterLocked() {
+        val idle = System.currentTimeMillis() - lastScrollAtMs > IDLE_TIMEOUT_MS
+        MeterBus.publish(
+            Meter(
+                active = true,
+                appPackage = sessionPackage,
+                activeSeconds = sessionActiveSeconds,
+                runningSince = if (idle) null else SystemClock.elapsedRealtime(),
+                rateCentsPerMin = Prefs.rateCentsPerMin(this),
+                anchors = Prefs.anchors(this).map {
+                    AnchorSnapshot(name = it.name, priceCents = it.priceCents, tierLevel = it.tierLevel)
+                },
+            ),
+        )
     }
 
     /**

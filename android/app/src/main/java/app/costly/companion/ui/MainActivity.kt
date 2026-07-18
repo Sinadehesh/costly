@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -28,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,10 +44,12 @@ import androidx.compose.ui.unit.sp
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import app.costly.companion.Prefs
+import app.costly.companion.overlay.OverlayPermission
 import app.costly.companion.ui.theme.Accent
 import app.costly.companion.ui.theme.Bg
 import app.costly.companion.ui.theme.Burn
 import app.costly.companion.ui.theme.CostlyTheme
+import app.costly.companion.ui.theme.Fg
 import app.costly.companion.ui.theme.Gold
 import app.costly.companion.ui.theme.Muted
 import app.costly.companion.work.HealthSyncWorker
@@ -75,6 +79,8 @@ fun ArmingScreen() {
     }
     var healthGranted by remember { mutableStateOf(false) }
     var syncRequested by remember { mutableStateOf(false) }
+    var overlayOn by remember { mutableStateOf(OverlayPermission.canDraw(context)) }
+    var showRestrictedWarning by remember { mutableStateOf(false) }
 
     val healthPermissionLauncher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract(),
@@ -83,6 +89,39 @@ fun ArmingScreen() {
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { /* taunts are a bonus, not a dependency */ }
+
+    // Returning from the overlay settings screen has no result payload; re-check.
+    val overlayLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { overlayOn = OverlayPermission.canDraw(context) }
+
+    if (showRestrictedWarning) {
+        AlertDialog(
+            onDismissRequest = { showRestrictedWarning = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRestrictedWarning = false
+                    overlayLauncher.launch(OverlayPermission.requestIntent(context))
+                }) { Text("I understand — continue", color = Accent) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRestrictedWarning = false }) {
+                    Text("Cancel", color = Muted)
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text("One Android 15 trap first", color = Fg) },
+            text = {
+                Text(
+                    "If you sideloaded this APK, Android 15 hides the overlay toggle behind " +
+                        "\"restricted settings\". If the switch is greyed out: go to App info → " +
+                        "the ⋮ menu → \"Allow restricted settings\", then come back and grant it. " +
+                        "We warned you the escape routes were closing.",
+                    color = Muted,
+                )
+            },
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -182,6 +221,38 @@ fun ArmingScreen() {
             }
         }
 
+        // ── Overlay ───────────────────────────────────────────────────────
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "3 · The meter" + if (overlayOn) " — granted" else "",
+                    color = if (overlayOn) Accent else MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    "The live meter floats over the app you're doomscrolling, ticking your " +
+                        "money away in real time. You can drag it aside. You cannot make it lie.",
+                    color = Muted, fontSize = 12.sp,
+                )
+                Button(
+                    onClick = {
+                        // Android 15 hides the toggle behind restricted settings for
+                        // sideloaded apps — warn first, then bounce to settings.
+                        if (Build.VERSION.SDK_INT >= 35 && !overlayOn) {
+                            showRestrictedWarning = true
+                        } else {
+                            overlayLauncher.launch(OverlayPermission.requestIntent(context))
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Allow drawing over apps") }
+            }
+        }
+
         // ── Health Connect ────────────────────────────────────────────────
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -189,7 +260,7 @@ fun ArmingScreen() {
         ) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "3 · The legs" + if (healthGranted) " — granted" else "",
+                    "4 · The legs" + if (healthGranted) " — granted" else "",
                     color = if (healthGranted) Accent else MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -216,7 +287,7 @@ fun ArmingScreen() {
             shape = RoundedCornerShape(16.dp),
         ) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("4 · Keep us alive", color = MaterialTheme.colorScheme.onSurface,
+                Text("5 · Keep us alive", color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold)
                 Text(
                     "Doze mode delays our 12-hour proof-of-life ping. If Android silences us " +

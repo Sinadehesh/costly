@@ -53,7 +53,7 @@ Mobile-first **Next.js web app** + Android companion service.
 | Cron schedules (`web/vercel.json`: expire-holds, check-heartbeats) | ✅ |
 | UI: landing, 4-step onboarding (Stripe Elements vault), purgatory dashboard | ✅ scaffolded |
 | Android companion (`android/`): arming UI, spy service, heartbeat + health-sync workers | ✅ scaffolded |
-| Android live overlay bubble (ticking meter over the vice app) | ⬜ next |
+| Android live meter overlay (Compose bubble over the vice app, per-second ticker) | ✅ scaffolded |
 | Android companion service (AccessibilityService + heartbeat worker) | ⬜ |
 | Companion app → health-minutes push wiring | ⬜ |
 | Breach warning email + reinstall-to-cure grace flow | ⬜ recommended |

@@ -57,9 +57,19 @@ data class ContractSummary(
     val deletionFeeCents: Int,
 )
 
+data class AnchorLite(
+    val name: String,
+    val priceCents: Int,
+    val tierLevel: Int,
+)
+
 data class DeviceHeartbeatResponse(
     val ok: Boolean,
     val contract: ContractSummary? = null,
+    // Meter config for the live overlay — refreshed on every ping so the
+    // bubble can tick euros and hostage-% locally, offline-tolerant.
+    val penaltyRateCentsPerMin: Int? = null,
+    val anchorItems: List<AnchorLite> = emptyList(),
 )
 
 // ── Redemption / sweat equity ─────────────────────────────────────────────

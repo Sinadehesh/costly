@@ -23,9 +23,10 @@ export async function POST(req: Request) {
   // TODO(auth): verify DEVICE_API_SECRET header from the companion service.
   const body = bodySchema.parse(await req.json());
 
-  await prisma.user.update({
+  const user = await prisma.user.update({
     where: { id: body.userId },
     data: { lastHeartbeatAt: new Date() },
+    include: { anchorItems: { orderBy: { tierLevel: 'asc' } } },
   });
 
   const activeContract = await prisma.commitmentContract.findFirst({
@@ -33,10 +34,17 @@ export async function POST(req: Request) {
     select: { id: true, lockinEndsAt: true, deletionFeeCents: true },
   });
 
-  // Tell the device where it stands so the UI can show the contract state
-  // ("Lock-in ends in 3 days. The switch is armed.").
+  // Tell the device where it stands (contract state for the arming UI) and
+  // ship the meter config: the live overlay ticks locally every second, so
+  // it needs the rate and the hostage ladder on-device, refreshed each ping.
   return NextResponse.json({
     ok: true,
     contract: activeContract,
+    penaltyRateCentsPerMin: user.penaltyRateCentsPerMin,
+    anchorItems: user.anchorItems.map((a) => ({
+      name: a.name,
+      priceCents: a.priceCents,
+      tierLevel: a.tierLevel,
+    })),
   });
 }

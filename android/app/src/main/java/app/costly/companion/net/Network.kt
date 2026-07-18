@@ -12,7 +12,8 @@ import java.util.concurrent.TimeUnit
 /** Single shared API client. Retrofit + OkHttp are cheap to hold as singletons. */
 object Network {
 
-    private val moshi: Moshi = Moshi.Builder()
+    // Public: Prefs reuses this for (de)serializing the cached anchor ladder.
+    val moshi: Moshi = Moshi.Builder()
         .add(KotlinJsonAdapterFactory())
         .build()
 

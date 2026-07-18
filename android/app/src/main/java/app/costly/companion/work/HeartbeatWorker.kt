@@ -48,13 +48,17 @@ class HeartbeatWorker(context: Context, params: WorkerParameters) :
             ?: return Result.success() // unarmed: nothing to prove, nobody to bill
 
         return try {
-            Network.api.deviceHeartbeat(
+            val response = Network.api.deviceHeartbeat(
                 DeviceHeartbeatRequest(
                     userId = userId,
                     accessibilityEnabled = isAccessibilityEnabled(applicationContext),
                     appVersion = BuildConfig.VERSION_NAME,
                 ),
             )
+            // Cache the meter config so the overlay can tick locally.
+            response.penaltyRateCentsPerMin?.let { rate ->
+                Prefs.setMeterConfig(applicationContext, rate, response.anchorItems)
+            }
             Result.success()
         } catch (e: IOException) {
             // Offline or server unreachable — retry with backoff. Retrying IS

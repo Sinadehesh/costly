@@ -2,6 +2,9 @@ package app.costly.companion
 
 import android.content.Context
 import android.content.SharedPreferences
+import app.costly.companion.net.AnchorLite
+import app.costly.companion.net.Network
+import com.squareup.moshi.Types
 
 /** Tiny persistent state: who we spy for, and which apps are the vices. */
 object Prefs {
@@ -10,6 +13,18 @@ object Prefs {
     private const val KEY_USER_ID = "userId"
     private const val KEY_BLOCKED = "blockedPackages"
     private const val KEY_ACTIVE_SESSION = "activeSessionId"
+    private const val KEY_RATE = "penaltyRateCentsPerMin"
+    private const val KEY_ANCHORS = "anchorsJson"
+
+    private val anchorsAdapter by lazy {
+        Network.moshi.adapter<List<AnchorLite>>(
+            Types.newParameterizedType(List::class.java, AnchorLite::class.java),
+        )
+    }
+
+    // Memoized parse — the spy publishes meter state every 5s.
+    private var anchorsCacheJson: String? = null
+    private var anchorsCache: List<AnchorLite> = emptyList()
 
     val DEFAULT_BLOCKED: Set<String> = setOf(
         "com.instagram.android",
@@ -43,4 +58,25 @@ object Prefs {
         sp(context).edit().apply {
             if (sessionId == null) remove(KEY_ACTIVE_SESSION) else putString(KEY_ACTIVE_SESSION, sessionId)
         }.apply()
+
+    // ── Meter config (cached from /api/device/heartbeat) ──────────────────
+
+    /** €1/min default until the first ping refreshes the real rate. */
+    fun rateCentsPerMin(context: Context): Int =
+        sp(context).getInt(KEY_RATE, 100)
+
+    fun anchors(context: Context): List<AnchorLite> {
+        val json = sp(context).getString(KEY_ANCHORS, null) ?: return emptyList()
+        if (json != anchorsCacheJson) {
+            anchorsCache = runCatching { anchorsAdapter.fromJson(json) }.getOrNull() ?: emptyList()
+            anchorsCacheJson = json
+        }
+        return anchorsCache
+    }
+
+    fun setMeterConfig(context: Context, rateCentsPerMin: Int, anchors: List<AnchorLite>) =
+        sp(context).edit()
+            .putInt(KEY_RATE, rateCentsPerMin)
+            .putString(KEY_ANCHORS, anchorsAdapter.toJson(anchors))
+            .apply()
 }

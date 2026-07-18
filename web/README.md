@@ -20,21 +20,34 @@ plain scheduler (system cron, GitHub Actions schedule) at
 
 ```
 src/app/api/
-├── onboarding/route.ts                    POST  create user, derive income-indexed
-│                                                rate, create Stripe customer
+├── onboarding/route.ts                    POST  create user (explicit hourly
+│                                                rate → per-minute rate), 5-tier
+│                                                anchor ladder, commitment
+│                                                contract, Stripe customer
 ├── stripe/
 │   ├── setup-intent/route.ts              POST  SetupIntent (usage: off_session)
 │   │                                            → frontend saves the card
 │   └── webhook/route.ts                   POST  Stripe events: saves payment
 │                                                method, reconciles session state,
 │                                                idempotent via WebhookEvent
+├── device/
+│   └── heartbeat/route.ts                 POST  12h liveness ping — the dead
+│                                                man's switch lifeline; replies
+│                                                with contract state
+├── contracts/
+│   └── [contractId]/
+│       ├── cancel/route.ts                POST  free exit, ONLY after lock-in
+│       │                                        has been served
+│       └── renew/route.ts                 POST  new lock-in period (new row,
+│                                                fresh consent evidence)
 ├── sessions/
 │   ├── start/route.ts                     POST  device: blocked app foregrounded;
 │   │                                            refuses to arm w/o saved card
 │   └── [sessionId]/
 │       ├── heartbeat/route.ts             POST  device: billable-seconds delta
 │       │                                        (idle-filtered); replies running
-│       │                                        total + capReached
+│       │                                        total + capReached + taunts
+│       │                                        (anchor tiers newly crossed)
 │       └── end/route.ts                   POST  THE financial moment: burn PI
 │                                                (20%, captured) + purgatory PI
 │                                                (80%, manual-capture hold) +
@@ -44,10 +57,15 @@ src/app/api/
 │                                                goal met in time → cancel hold
 │                                                → RELEASED
 └── jobs/
-    └── expire-holds/route.ts              GET   scheduled sweep (Vercel Cron /
-                                                 any cron): past-deadline
-                                                 PENDING → capture hold →
-                                                 CAPTURED/FAILED
+    ├── expire-holds/route.ts              GET   scheduled sweep (Vercel Cron /
+    │                                            any cron): past-deadline
+    │                                            PENDING → capture hold →
+    │                                            CAPTURED/FAILED
+    └── check-heartbeats/route.ts          GET   dead man's switch sweep:
+                                                 ACTIVE contracts — lock-in
+                                                 served → COMPLETED; >24h of
+                                                 ping silence → BREACHED +
+                                                 deletion-fee charge
 ```
 
 ## Session lifecycle
@@ -77,7 +95,29 @@ other 80% authorized — partial capture releases the remainder. Splitting
 into a burn intent and a purgatory intent is the only clean way to get
 "20% gone now, 80% redeemable" semantics.
 
+## Dead man's switch (deletion penalty)
+
+```
+onboarding: contract signed
+  deletionFeeCents (€0..€1000), lockinEndsAt (+7d or +30d)   Contract ACTIVE
+
+companion app: POST /api/device/heartbeat every 12h
+  (plus opportunistic pings on launch + every session event;
+   session heartbeats also count as proof of life)
+
+hourly: cron → GET /api/jobs/check-heartbeats, per ACTIVE contract:
+  lockinEndsAt passed                → COMPLETED  (switch disarms)
+  lastHeartbeatAt > 24h old          → BREACHED   (2 missed pings =
+    off-session charge of deletionFeeCents,        deleted app or revoked
+    idempotencyKey breach_{contractId})            permissions mid-lock-in)
+  lastHeartbeatAt null               → skipped    (arms on first ping)
+
+after lock-in: POST /api/contracts/:id/cancel  → CANCELLED (free)
+               POST /api/contracts/:id/renew   → new ACTIVE contract row
+```
+
 ## Money
 
-Integer cents everywhere (`monthlyIncomeCents`, `penaltyRateCentsPerMin`,
-…). Pure math lives in `src/lib/penalty.ts` — no IO, unit-test it hard.
+Integer cents everywhere (`hourlyRateCents`, `penaltyRateCentsPerMin`,
+`deletionFeeCents`, …). Pure math lives in `src/lib/penalty.ts` — no IO,
+unit-test it hard.

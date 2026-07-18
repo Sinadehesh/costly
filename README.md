@@ -4,11 +4,15 @@
 then makes you walk it off.**
 
 Costly charges you real money per minute of doomscrolling (Instagram,
-TikTok, …) at a rate indexed to your income, frames every loss as a
-percentage of a product you're actually saving for ("You have burned 2%
-of your AirPods"), and lets you earn 80% of it back through verified
-physical exercise: 2 minutes of walking for every minute scrolled,
-within 24 hours.
+TikTok, …) at the hourly rate you set for your own time, frames every
+loss against a 5-tier ladder of products you actually want (coffee →
+book → dinner → AirPods → PS5, taunting you as the meter crosses each
+price), and lets you earn 80% of it back through verified physical
+exercise: 2 minutes of walking for every minute scrolled, within 24
+hours. And because you'll be tempted to delete it when it hurts, you
+sign a commitment contract at onboarding: delete the app (or revoke its
+permissions) during your lock-in period and a dead man's switch charges
+your self-chosen deletion fee.
 
 ## Architecture (v2 — ACTIVE)
 
@@ -40,9 +44,11 @@ Mobile-first **Next.js web app** + Android companion service.
 
 | Piece | State |
 | --- | --- |
-| Prisma schema (User / Session / RedemptionTask / WebhookEvent) | ✅ |
-| API routes: onboarding, setup-intent, session lifecycle, redemption sync, expiry job, webhook | ✅ scaffolded |
+| Prisma schema (User / AnchorItem / CommitmentContract / Session / RedemptionTask / WebhookEvent) | ✅ |
+| API routes: onboarding, setup-intent, session lifecycle + taunts, redemption sync, webhook | ✅ scaffolded |
+| Dead man's switch: device heartbeat, breach sweep, contract cancel/renew | ✅ scaffolded |
+| Cron schedules (`web/vercel.json`: expire-holds, check-heartbeats) | ✅ |
 | UI: onboarding flow, live meter, purgatory dashboard | ⬜ next |
-| Android companion service (AccessibilityService) | ⬜ |
-| Expiry sweep schedule (`web/vercel.json` cron) | ✅ |
+| Android companion service (AccessibilityService + heartbeat worker) | ⬜ |
 | Companion app → health-minutes push wiring | ⬜ |
+| Breach warning email + reinstall-to-cure grace flow | ⬜ recommended |

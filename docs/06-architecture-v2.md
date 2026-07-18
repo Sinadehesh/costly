@@ -16,19 +16,34 @@
 
 ## Mechanics
 
-1. **Income-indexed rate** — monthly income → hourly wage → per-minute
-   penalty rate, so the loss stings equally regardless of wealth.
-2. **Product anchor ("the hostage")** — losses displayed as % of a real
-   item the user is saving for, not raw euros.
-3. **Vice meter + idle detection** — AccessibilityService watches
+1. **Explicit hourly rate** — the user states what one hour of their
+   time is worth; the system divides by 60 for the per-minute penalty
+   rate. No income guessing.
+2. **Escalating product anchors ("the hostage ladder")** — 5 items at
+   rising price tiers (coffee €5 → book €25 → dinner €80 → AirPods
+   €250 → PS5 €500). Losses are displayed as % of these items, not raw
+   euros.
+3. **The taunt mechanic** — when the live meter crosses the exact price
+   of an anchor item, the device fires a hostile notification/overlay:
+   *"Thank you for buying us [Product Name]."* Each tier fires exactly
+   once per session (`Session.lastTauntTier`).
+4. **Vice meter + idle detection** — AccessibilityService watches
    `TYPE_VIEW_SCROLLED`; 60s without a scroll pauses the timer (no
    charging sleepers). Hard cap per session (default €30) terminates
    the session — no catastrophic chargebacks.
-4. **20/80 split** — session ends → 20% permanently captured ("the
+5. **20/80 split** — session ends → 20% permanently captured ("the
    burn"), 80% held in purgatory for 24h.
-5. **Sweat equity, 2:1** — every scroll-minute owes 2 verified walking
+6. **Sweat equity, 2:1** — every scroll-minute owes 2 verified walking
    minutes. Goal met in 24h → hold released. Deadline missed → hold
    captured.
+7. **The deletion penalty (dead man's switch)** — at onboarding the
+   user signs a commitment contract: a lock-in period (7 or 30 days)
+   and a breach fee (€0–€1000; €0 allowed but labeled "Not
+   Recommended"). The companion app pings the backend every 12h. Two
+   consecutive missed pings (>24h silence) during lock-in = the app was
+   deleted or its permissions revoked → the full deletion fee is
+   charged off-session. After lock-in: free cancel, or renew for a new
+   period (a new contract row with fresh consent evidence).
 
 ## Stripe design decisions (engineering, not negotiable wishes)
 
@@ -46,6 +61,12 @@
 - **Webhook reconciliation** is the source of truth backstop, with an
   idempotency ledger (`WebhookEvent`) so retried deliveries never
   double-capture.
+- **The breach charge is idempotent per contract**
+  (`idempotencyKey: breach_{contractId}`), so a crash between the
+  Stripe charge and the DB write cannot double-charge on the next
+  sweep. Consent evidence (`acceptedAt`, `termsVersion`) is stored on
+  every contract — a "you charged me for deleting an app" chargeback
+  dispute is won or lost on that record.
 
 ## Known platform risks (tracked, not blocking)
 
@@ -58,12 +79,24 @@
   by Play Store policy; distribution may need to be sideload/APK first,
   Play review argued later (or a UsageStats fallback with coarser idle
   detection).
+- **Dead-man's-switch false positives.** A dead battery, a week
+  offline, or Android's Doze killing WorkManager looks identical to
+  deletion from the server's side. Mitigations built in: the app pings
+  opportunistically (launch + every session event, not just the 12h
+  worker), session heartbeats count as proof of life, and the switch
+  only arms after the first ping. Recommended before real users:
+  a warning email at ~18h of silence and a short reinstall-to-cure
+  window — charging a user whose phone died in a drawer is a
+  chargeback machine.
 
 ## Data model
 
-See `web/prisma/schema.prisma` — User, Session (ACTIVE → HOLD →
-RELEASED | CAPTURED), RedemptionTask (PENDING → SUCCESS | FAILED),
-WebhookEvent.
+See `web/prisma/schema.prisma` — User (explicit hourly rate, last
+heartbeat), AnchorItem (5-tier hostage ladder, unique per user+tier),
+CommitmentContract (ACTIVE → COMPLETED | CANCELLED | BREACHED, with fee
++ consent evidence per lock-in period), Session (ACTIVE → HOLD →
+RELEASED | CAPTURED, plus lastTauntTier), RedemptionTask (PENDING →
+SUCCESS | FAILED), WebhookEvent.
 
 ## API surface
 
@@ -72,8 +105,11 @@ sequence.
 
 ## UI surfaces (to scaffold next)
 
-1. **Onboarding flow** — income input → rate reveal → anchor selection
-   → card save (SetupIntent).
-2. **Live meter** — ticking elapsed time, euro amount, anchor-% burned.
+1. **Onboarding flow** — hourly-rate input → rate reveal → 5-tier
+   anchor ladder entry → commitment contract (lock-in + deletion fee,
+   €0 shown as "Not Recommended") → card save (SetupIntent).
+2. **Live meter** — ticking elapsed time, euro amount, anchor-% burned,
+   taunt overlays as tiers are crossed.
 3. **Purgatory dashboard** — active holds, 24h countdown, walking
-   progress bar (completed vs required minutes).
+   progress bar, contract status ("Lock-in ends in 3 days. The switch
+   is armed.").

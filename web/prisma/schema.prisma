@@ -9,6 +9,11 @@
 // per session: a "burn" intent (20%, captured immediately, off-session) and
 // a "purgatory" intent (80%, manual-capture hold, cancelled on redemption
 // success or captured on deadline expiry).
+//
+// The deletion fee ("dead man's switch") is a third off-session charge,
+// triggered by the heartbeat sweep when the device goes silent for 2
+// consecutive 12h ping windows (>24h) while a commitment contract is still
+// inside its lock-in period.
 
 generator client {
   provider = "prisma-client-js"
@@ -32,24 +37,32 @@ enum RedemptionStatus {
   FAILED
 }
 
+enum ContractStatus {
+  ACTIVE    // inside lock-in; dead man's switch armed
+  COMPLETED // lock-in served in full; heartbeats no longer enforced
+  CANCELLED // user ran the (free) cancel flow after lock-in expiry
+  BREACHED  // heartbeats went dark during lock-in → deletion fee charged
+}
+
 model User {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   email     String   @unique
 
-  // ── Income-indexed rate ────────────────────────────────────────────────
-  monthlyIncomeCents     Int
-  hourlyWageCents        Int // derived at onboarding (income / 160h), stored for audit
-  penaltyRateCentsPerMin Int // e.g. 100 = €1.00/minute
-
-  // ── Product anchor ("the hostage") ─────────────────────────────────────
-  anchorItem       String // "AirPods Pro"
-  anchorPriceCents Int    // 24900
+  // ── Rate: the user states what one hour of their life is worth ─────────
+  hourlyRateCents        Int // set explicitly at onboarding, no guessing
+  penaltyRateCentsPerMin Int // hourlyRateCents / 60, stored to keep billing stable
 
   // ── Safety rails ───────────────────────────────────────────────────────
   sessionCapCents Int @default(3000) // hard financial stop per session (€30)
   idleTimeoutSecs Int @default(60)   // pause timer after N s without a scroll event
+
+  // ── Dead man's switch ──────────────────────────────────────────────────
+  // The companion app pings /api/device/heartbeat every 12h. The sweep
+  // treats 2 consecutive missed pings (>24h of silence) during an ACTIVE
+  // contract's lock-in as deletion/permission-revocation → breach charge.
+  lastHeartbeatAt DateTime?
 
   // ── Stripe ─────────────────────────────────────────────────────────────
   stripeCustomerId      String? @unique
@@ -57,7 +70,64 @@ model User {
 
   currency String @default("eur")
 
-  sessions Session[]
+  sessions    Session[]
+  anchorItems AnchorItem[]
+  contracts   CommitmentContract[]
+}
+
+// The escalating hostage ladder: 5 items at rising price tiers
+// (1: coffee €5 … 5: PS5 €500). The live meter taunts when the running
+// session penalty crosses an item's exact price:
+// "Thank you for buying us [Product Name]."
+model AnchorItem {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  name       String // "AirPods"
+  priceCents Int    // 25000
+  tierLevel  Int    // 1..5, ascending prices enforced at the API layer
+  emoji      String?
+
+  @@unique([userId, tierLevel])
+  @@index([userId])
+}
+
+// The "Breach of Contract / Deletion Fee" agreement. A separate table
+// (not User columns) because contracts renew: each lock-in period is its
+// own row with its own fee, consent evidence, and terminal state. The
+// requirement's DeletionFeeAmount / ContractLockinEndDate live here;
+// LastHeartbeatPing lives on User (heartbeats are per-device, not
+// per-contract).
+model CommitmentContract {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  // €0..€1000. €0 is allowed ("Not Recommended") — a €0 breach still
+  // flips status to BREACHED, it just charges nothing.
+  deletionFeeCents Int
+
+  lockinStartsAt DateTime @default(now())
+  lockinEndsAt   DateTime // ContractLockinEndDate
+
+  // Consent evidence for the off-session breach charge — Stripe disputes
+  // on a "you charged me for deleting an app" chargeback are won or lost
+  // on this record.
+  acceptedAt   DateTime
+  termsVersion String
+
+  status ContractStatus @default(ACTIVE)
+
+  breachedAt                   DateTime?
+  stripeBreachPaymentIntentId  String?   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // heartbeat sweep: WHERE status = ACTIVE (then compare user.lastHeartbeatAt)
+  @@index([status, lockinEndsAt])
+  @@index([userId, status])
 }
 
 model Session {
@@ -79,6 +149,11 @@ model Session {
   burnCents         Int     @default(0) // 20% — permanently captured
   purgatoryCents    Int     @default(0) // 80% — held, redeemable
   capReached        Boolean @default(false)
+
+  // Taunt mechanic: highest anchor tier whose price this session's meter
+  // has already crossed (and taunted). Ensures each tier taunts exactly
+  // once per session even though heartbeats arrive every ~30s.
+  lastTauntTier Int @default(0)
 
   status SessionStatus @default(ACTIVE)
 

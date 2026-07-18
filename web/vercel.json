@@ -3,6 +3,10 @@
     {
       "path": "/api/jobs/expire-holds",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/jobs/check-heartbeats",
+      "schedule": "0 * * * *"
     }
   ]
 }

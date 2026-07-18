@@ -1,0 +1,25 @@
+@import 'tailwindcss';
+
+/* COSTLY design tokens — dark only. If a color isn't here, it doesn't exist. */
+@theme {
+  --color-bg: #0b0d0a;
+  --color-surface: #151812;
+  --color-accent: #2edb6a; /* money-green: CTAs, the house's colors */
+  --color-burn: #ff3b2f; /* the meter and money-at-risk ONLY */
+  --color-gold: #f5b940; /* user victories over the house */
+  --color-fg: #f2f4ef;
+  --color-muted: #98a090;
+
+  --radius-card: 16px;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+}
+
+/* All numbers tick in mono — taxi meter, not banking app. */
+.money {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+}

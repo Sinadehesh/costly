@@ -24,9 +24,15 @@ src/app/api/
 │                                                rate → per-minute rate), 5-tier
 │                                                anchor ladder, commitment
 │                                                contract, Stripe customer
+├── dashboard/route.ts                     GET   aggregate Purgatory view:
+│                                                contract, holds + redemptions,
+│                                                walking totals, armed state
 ├── stripe/
 │   ├── setup-intent/route.ts              POST  SetupIntent (usage: off_session)
-│   │                                            → frontend saves the card
+│   │                                            → frontend vaults the card
+│   ├── setup-complete/route.ts            POST  server-verified write-back of
+│   │                                            the vaulted payment method
+│   │                                            (webhook's belt-and-braces twin)
 │   └── webhook/route.ts                   POST  Stripe events: saves payment
 │                                                method, reconciles session state,
 │                                                idempotent via WebhookEvent
@@ -67,6 +73,23 @@ src/app/api/
                                                  ping silence → BREACHED +
                                                  deletion-fee charge
 ```
+
+## Pages
+
+- `/` — landing: the pitch, one CTA ("Sign the contract").
+- `/onboarding` — 4-step wizard: hourly rate (live per-minute preview) →
+  hostage ladder (5 ascending tiers) → the contract (lock-in +
+  deletion-fee slider; €0 triggers the "Not Recommended" warning) →
+  the vault (Stripe Elements + SetupIntent, `redirect: 'if_required'`,
+  then server-verified write-back via `/api/stripe/setup-complete`).
+- `/dashboard` — the Purgatory view: active contract with the deletion
+  fee and lock-in countdown, purgatory wallet (holds + per-session
+  capture countdowns), sweat-equity progress bar (gold at 100%), the
+  hostage ladder, and the UNARMED banner with the companion-app
+  download prompt until the first device heartbeat lands.
+
+Identity is `localStorage['costly:userId']` until real auth lands —
+every API route carries a `TODO(auth)`.
 
 ## Session lifecycle
 

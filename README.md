@@ -48,7 +48,8 @@ Mobile-first **Next.js web app** + Android companion service.
 | API routes: onboarding, setup-intent, session lifecycle + taunts, redemption sync, webhook | ✅ scaffolded |
 | Dead man's switch: device heartbeat, breach sweep, contract cancel/renew | ✅ scaffolded |
 | Cron schedules (`web/vercel.json`: expire-holds, check-heartbeats) | ✅ |
-| UI: onboarding flow, live meter, purgatory dashboard | ⬜ next |
+| UI: landing, 4-step onboarding (Stripe Elements vault), purgatory dashboard | ✅ scaffolded |
+| UI: live meter view (web overlay/widget) | ⬜ next |
 | Android companion service (AccessibilityService + heartbeat worker) | ⬜ |
 | Companion app → health-minutes push wiring | ⬜ |
 | Breach warning email + reinstall-to-cure grace flow | ⬜ recommended |

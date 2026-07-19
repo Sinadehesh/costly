@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG ONLY. This file lives in app/src/debug, so it is compiled into the
+  debug APK and nothing else — the release build has no cleartext config at
+  all and therefore stays HTTPS-only (Android blocks cleartext by default on
+  API 28+). That is the whole point: dev talks plain HTTP to a laptop, prod
+  cannot.
+
+  base-config permits cleartext to ANY host in the debug build. That's
+  deliberate: it covers the emulator alias (10.0.2.2), `adb reverse` to
+  127.0.0.1, AND an arbitrary LAN-IP dev server (192.168.x.x / 10.x.x.x)
+  without having to enumerate it. Safe because it is scoped to the debug
+  source set only — it can never ship in a release APK.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

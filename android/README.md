@@ -101,9 +101,36 @@ settings" warning for sideloaded installs (the toggle is hidden otherwise).
 The spy only starts the overlay once the permission is held — which is also
 the exemption that lets it start a foreground service from the background.
 
+## Local dev networking
+
+The debug build talks plain HTTP to a dev server, which Android blocks by
+default on API 28+. `app/src/debug/` carries a **debug-only** network security
+config (`res/xml/network_security_config.xml`, applied via
+`src/debug/AndroidManifest.xml`) that permits cleartext for the debug APK
+only — the release APK has no such exemption and stays HTTPS-only.
+
+Reach the dev server one of two ways:
+
+- **Emulator**: the default `API_BASE_URL` `http://10.0.2.2:3000/` already
+  points at the host.
+- **Physical device**: run `adb reverse tcp:3000 tcp:3000` and set
+  `API_BASE_URL` to `http://127.0.0.1:3000/`, or leave it and point
+  `API_BASE_URL` at your laptop's LAN IP. The debug config's `base-config`
+  permits any host, so a LAN IP needs no further edit.
+
+## Device auth
+
+Every request carries an `x-device-secret` header (`net/Network.kt`
+interceptor) whose value is the `DEVICE_API_SECRET` build config field,
+sourced from the `costlyDeviceApiSecret` Gradle property (set it in
+`~/.gradle/gradle.properties` or pass `-PcostlyDeviceApiSecret=…`; defaults
+to `change-me`, matching `web/.env.example`). The backend routes still carry
+`TODO(auth)` and don't verify it yet — the header is forward-compatible: it
+must match the web `DEVICE_API_SECRET` env var the moment those checks land.
+
 ## Not wired yet
 
-- `DEVICE_API_SECRET` header on requests (backend `TODO(auth)` too) — the
-  interceptor stub is in `net/Network.kt`.
+- Backend enforcement of the `x-device-secret` header — the app already
+  sends it; the Next.js routes still `TODO(auth)` the verification.
 - Tap-to-expand on the bubble (session window remaining + "End session"
   button) — `performClick` is already routed; the expanded content is TODO.

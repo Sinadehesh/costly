@@ -37,10 +37,18 @@ const bodySchema = z.object({
 
 /**
  * POST /api/onboarding
- * Creates the user, the 5-tier anchor ladder, the commitment contract
- * (which arms the dead man's switch), and the Stripe customer. The client
- * then calls /api/stripe/setup-intent to save a card — without a saved
- * payment method the meter must refuse to arm.
+ * Upserts the user by email, so re-running onboarding with the same address
+ * updates the rate/wishlist/contract instead of dying on the P2002 unique
+ * constraint. Re-onboarding an existing user:
+ *   - keeps their Stripe customer (and any vaulted card) — never a duplicate
+ *     customer for the same person;
+ *   - REPLACES the wishlist (deleteMany + create) rather than stacking
+ *     duplicates on every run;
+ *   - closes any previous ACTIVE contract as COMPLETED before creating the
+ *     new one — the dead man's switch must never have two armed contracts,
+ *     or a single silence would double-charge.
+ * The client then calls /api/stripe/setup-intent to save a card — without a
+ * saved payment method the meter must refuse to arm.
  */
 export async function POST(req: Request) {
   // TODO(auth): replace email-in-body with a real session once auth lands.
@@ -50,35 +58,57 @@ export async function POST(req: Request) {
   // ladder's "crossed in order" semantics without burdening the form.
   const rankedAnchors = [...body.anchorItems].sort((a, b) => a.priceCents - b.priceCents);
 
-  const customer = await stripe.customers.create({ email: body.email });
-  const now = new Date();
+  const existing = await prisma.user.findUnique({
+    where: { email: body.email },
+    select: { id: true, stripeCustomerId: true },
+  });
 
-  const user = await prisma.user.create({
-    data: {
+  const stripeCustomerId =
+    existing?.stripeCustomerId ?? (await stripe.customers.create({ email: body.email })).id;
+
+  if (existing) {
+    await prisma.commitmentContract.updateMany({
+      where: { userId: existing.id, status: 'ACTIVE' },
+      data: { status: 'COMPLETED' },
+    });
+  }
+
+  const now = new Date();
+  const contractData = {
+    deletionFeeCents: body.deletionFeeCents,
+    lockinStartsAt: now,
+    lockinEndsAt: new Date(now.getTime() + body.lockinDays * 86_400_000),
+    acceptedAt: now,
+    termsVersion: body.termsVersion,
+  };
+  const anchorData = rankedAnchors.map((item, idx) => ({
+    tierLevel: idx + 1,
+    name: item.name,
+    priceCents: item.priceCents,
+    emoji: item.emoji,
+  }));
+
+  const user = await prisma.user.upsert({
+    where: { email: body.email },
+    create: {
       email: body.email,
       hourlyRateCents: body.hourlyRateCents,
       penaltyRateCentsPerMin: perMinuteRateCents(body.hourlyRateCents),
       sessionCapCents: body.sessionCapCents ?? 3000,
-      stripeCustomerId: customer.id,
-      anchorItems: {
-        create: rankedAnchors.map((item, idx) => ({
-          tierLevel: idx + 1,
-          name: item.name,
-          priceCents: item.priceCents,
-          emoji: item.emoji,
-        })),
-      },
-      contracts: {
-        create: {
-          deletionFeeCents: body.deletionFeeCents,
-          lockinStartsAt: now,
-          lockinEndsAt: new Date(now.getTime() + body.lockinDays * 86_400_000),
-          acceptedAt: now,
-          termsVersion: body.termsVersion,
-        },
-      },
+      stripeCustomerId,
+      anchorItems: { create: anchorData },
+      contracts: { create: contractData },
     },
-    include: { contracts: true },
+    update: {
+      hourlyRateCents: body.hourlyRateCents,
+      penaltyRateCentsPerMin: perMinuteRateCents(body.hourlyRateCents),
+      ...(body.sessionCapCents !== undefined ? { sessionCapCents: body.sessionCapCents } : {}),
+      anchorItems: { deleteMany: {}, create: anchorData },
+      contracts: { create: contractData },
+    },
+    include: {
+      contracts: { orderBy: { createdAt: 'desc' }, take: 1 },
+    },
   });
 
   return NextResponse.json({

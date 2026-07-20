@@ -158,22 +158,28 @@ export default function DashboardPage() {
           <section className="rounded-xl border-4 border-red-900 bg-black p-5">
             <p className="font-mono text-xs tracking-[0.25em] text-red-500">SYSTEM UNARMED</p>
             <p className="mt-2 text-sm leading-relaxed text-zinc-300">
-              You signed the contract, but the system cannot track your
-              physical laziness yet. The cat is waiting for your step count.
-              It will remember if you refuse to stand up.
+              You signed the contract, but the system is blind. The cat cannot
+              track your screen time, and it cannot see your step count. It is
+              waiting.
             </p>
-            {/* TODO(health): wire to the Health Hub consent/deep-link flow. */}
-            <button
-              type="button"
-              className="mt-4 w-full rounded-lg border-2 border-emerald-500 bg-zinc-950 px-4 py-4 text-left transition hover:bg-emerald-500/10"
-            >
-              <span className="block font-mono text-sm font-bold text-emerald-400">
-                &gt; Connect Health Hub._
-              </span>
-              <span className="mt-1 block font-mono text-xs text-zinc-500">
-                Grant access to your walking data to arm the system.
-              </span>
-            </button>
+            {/* The Android companion is the single source of truth for BOTH
+                tracking fronts: Accessibility (scrolling) + Health Connect
+                (steps). The web only listens for its pings. */}
+            <div className="mt-4 flex items-center gap-4 rounded-lg border-2 border-emerald-500 bg-zinc-950 p-4">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border-2 border-dashed border-zinc-600 font-mono text-[10px] text-zinc-500">
+                QR / APK
+              </div>
+              <div className="min-w-0">
+                <p className="font-mono text-sm font-bold text-emerald-400">
+                  &gt; Install Companion App._
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+                  Download the Android APK. Grant Accessibility (to track
+                  scrolling) AND Health Connect (to track steps) to arm the
+                  system.
+                </p>
+              </div>
+            </div>
           </section>
         )}
 

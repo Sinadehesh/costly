@@ -52,6 +52,7 @@ Mobile-first **Next.js web app** + Android companion service.
 | Dead man's switch: device heartbeat, breach sweep, contract cancel/renew | ✅ scaffolded |
 | Cron schedules (`web/vercel.json`: expire-holds, check-heartbeats) | ✅ |
 | UI: landing, 4-step onboarding (Stripe Elements vault), purgatory dashboard | ✅ scaffolded |
+| "Hostile Arcade" redesign: terminal aesthetic, cat mascot widget, optional wishlist | ✅ (dashboard + onboarding; landing still on v1 skin) |
 | Android companion (`android/`): arming UI, spy service, heartbeat + health-sync workers | ✅ scaffolded |
 | Android live meter overlay (Compose bubble over the vice app, per-second ticker) | ✅ scaffolded |
 | Android companion service (AccessibilityService + heartbeat worker) | ⬜ |

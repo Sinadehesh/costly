@@ -57,6 +57,22 @@ export async function GET(req: Request) {
     { purgatoryCents: 0, requiredWalkingMinutes: 0, completedWalkingMinutes: 0 },
   );
 
+  // Lifetime money actually gone: every burn ever charged, plus every
+  // purgatory hold that expired into a capture. Holds still in purgatory are
+  // "at stake", not lost — they get their own number.
+  const [burnAgg, capturedAgg] = await Promise.all([
+    prisma.session.aggregate({
+      _sum: { burnCents: true },
+      where: { userId, status: { in: ['HOLD', 'RELEASED', 'CAPTURED'] } },
+    }),
+    prisma.session.aggregate({
+      _sum: { purgatoryCents: true },
+      where: { userId, status: 'CAPTURED' },
+    }),
+  ]);
+  const lifetimeLostCents =
+    (burnAgg._sum.burnCents ?? 0) + (capturedAgg._sum.purgatoryCents ?? 0);
+
   return NextResponse.json({
     user: {
       email: user.email,
@@ -76,5 +92,6 @@ export async function GET(req: Request) {
       : null,
     holds,
     totals,
+    lifetimeLostCents,
   });
 }

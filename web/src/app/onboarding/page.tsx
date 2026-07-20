@@ -4,22 +4,24 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
+import { CatWidget } from '@/components/CatWidget';
 import { euros, eurosExact } from '@/lib/format';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
-const TIER_SUGGESTIONS = [
-  { hint: 'A good coffee', price: 5 },
-  { hint: 'A hardcover book', price: 25 },
-  { hint: 'A nice dinner', price: 80 },
-  { hint: 'AirPods', price: 250 },
-  { hint: 'A PS5', price: 500 },
-];
+const WISH_HINTS = ['PlayStation 5', 'AirPods', 'A nice dinner', 'A hardcover book', 'Concert tickets'];
 
-interface AnchorDraft {
+interface WishDraft {
   name: string;
   priceEuros: string;
 }
+
+const inputClass =
+  'w-full rounded-xl border-4 border-gray-800 bg-zinc-950 px-4 py-3 text-white outline-none focus:border-emerald-500';
+const cardClass = 'rounded-xl border-4 border-gray-800 bg-black p-5';
+const ctaClass =
+  'w-full rounded-xl border-4 border-gray-800 bg-emerald-500 px-6 py-4 font-extrabold text-zinc-950 transition enabled:hover:brightness-110 disabled:opacity-30';
+const backClass = 'rounded-xl border-4 border-gray-800 bg-zinc-900 px-6 py-4 font-bold text-zinc-400';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -30,9 +32,9 @@ export default function OnboardingPage() {
   // Step 1
   const [email, setEmail] = useState('');
   const [hourlyEuros, setHourlyEuros] = useState('');
-  // Step 2
-  const [anchors, setAnchors] = useState<AnchorDraft[]>(
-    TIER_SUGGESTIONS.map(() => ({ name: '', priceEuros: '' })),
+  // Step 2 — COMPLETELY OPTIONAL. Blank rows are a supported, first-class state.
+  const [wishes, setWishes] = useState<WishDraft[]>(
+    WISH_HINTS.map(() => ({ name: '', priceEuros: '' })),
   );
   // Step 3
   const [lockinDays, setLockinDays] = useState<7 | 30>(7);
@@ -44,17 +46,24 @@ export default function OnboardingPage() {
   const hourlyCents = Math.round(Number(hourlyEuros || 0) * 100);
   const perMinuteCents = Math.max(1, Math.round(hourlyCents / 60));
 
-  const anchorErrors = useMemo(() => {
-    const errs: string[] = [];
-    let prev = 0;
-    anchors.forEach((a, i) => {
-      const cents = Math.round(Number(a.priceEuros || 0) * 100);
-      if (!a.name.trim() || cents <= 0) errs.push(`Tier ${i + 1} needs a name and a price.`);
-      else if (cents <= prev) errs.push(`Tier ${i + 1} must cost more than tier ${i}.`);
-      prev = cents;
-    });
-    return errs;
-  }, [anchors]);
+  // A row counts only when BOTH fields are filled; a half-filled row is the
+  // one thing we refuse (we won't guess what "PlayStation, €" costs).
+  const filledWishes = useMemo(
+    () =>
+      wishes
+        .filter((w) => w.name.trim() !== '' && Number(w.priceEuros) > 0)
+        .map((w) => ({ name: w.name.trim(), priceCents: Math.round(Number(w.priceEuros) * 100) })),
+    [wishes],
+  );
+  const halfFilled = useMemo(
+    () =>
+      wishes.some(
+        (w) =>
+          (w.name.trim() === '') !== (w.priceEuros.trim() === '') ||
+          (w.priceEuros.trim() !== '' && !(Number(w.priceEuros) > 0)),
+      ),
+    [wishes],
+  );
 
   async function submitAndVault() {
     setBusy(true);
@@ -66,13 +75,10 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           email,
           hourlyRateCents: hourlyCents,
-          anchorItems: anchors.map((a) => ({
-            name: a.name.trim(),
-            priceCents: Math.round(Number(a.priceEuros) * 100),
-          })),
+          anchorItems: filledWishes, // may legitimately be []
           deletionFeeCents: Math.round(feeEuros * 100),
           lockinDays,
-          termsVersion: '2026-07-v1',
+          termsVersion: '2026-07-v2-arcade',
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? 'onboarding_failed');
@@ -98,167 +104,174 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-md px-6 py-10">
-      <header className="mb-8">
-        <p className="money text-xs tracking-[0.3em] text-accent">COSTLY / ONBOARDING</p>
-        <div className="mt-3 flex gap-1">
+    <main className="mx-auto min-h-screen max-w-md bg-zinc-950 px-4 py-8 sm:px-6">
+      {/* Terminal header + progress */}
+      <header className="rounded-xl border-4 border-gray-800 bg-black px-4 py-3">
+        <p className="font-mono text-xs tracking-[0.25em] text-emerald-400">
+          COSTLY://ONBOARDING · STEP {step}/4
+        </p>
+        <div className="mt-3 flex gap-1.5">
           {[1, 2, 3, 4].map((s) => (
             <div
               key={s}
-              className={`h-1 flex-1 rounded ${s <= step ? 'bg-accent' : 'bg-surface'}`}
+              className={`h-2 flex-1 rounded ${s <= step ? 'bg-emerald-500' : 'bg-zinc-800'}`}
             />
           ))}
         </div>
       </header>
 
       {error && (
-        <div className="mb-6 rounded-card border border-burn/40 bg-burn/10 p-4 text-sm text-burn">
-          {error}
+        <div className="mt-5 rounded-xl border-4 border-red-900 bg-black p-4 font-mono text-sm text-red-500">
+          ERR: {error}
         </div>
       )}
 
       {step === 1 && (
-        <section className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold">What is one hour of your life worth?</h1>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
-              Don&apos;t flatter yourself. Don&apos;t undersell yourself either — a cheap
-              rate makes for a painless meter, and a painless meter changes
-              nothing. Be honest. We&apos;ll do the math.
+        <section className="mt-6 space-y-5">
+          <CatWidget penaltyCents={0} className="-rotate-1" />
+          <div className={cardClass}>
+            <h1 className="text-2xl font-extrabold text-white">
+              What is one hour of your life worth?
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Be honest. A cheap rate makes a painless meter, and a painless
+              meter changes nothing. The cat prefers you lie — it eats either
+              way.
             </p>
+            <label className="mt-4 block">
+              <span className="font-mono text-[10px] tracking-widest text-zinc-500">EMAIL</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className={`${inputClass} mt-1`}
+              />
+            </label>
+            <label className="mt-4 block">
+              <span className="font-mono text-[10px] tracking-widest text-zinc-500">
+                HOURLY RATE (€)
+              </span>
+              <input
+                type="number"
+                min="1"
+                value={hourlyEuros}
+                onChange={(e) => setHourlyEuros(e.target.value)}
+                placeholder="30"
+                className={`${inputClass} mt-1 font-mono text-2xl tabular-nums`}
+              />
+            </label>
+            {hourlyCents > 0 && (
+              <div className="mt-4 rounded-lg border-2 border-gray-800 bg-zinc-950 p-4">
+                <p className="font-mono text-[10px] tracking-widest text-zinc-500">
+                  YOUR SCROLL PRICE
+                </p>
+                <p className="mt-1 font-mono text-3xl font-bold tabular-nums text-emerald-400">
+                  {eurosExact(perMinuteCents)}/min
+                </p>
+              </div>
+            )}
           </div>
-          <label className="block">
-            <span className="text-xs uppercase tracking-wider text-muted">Your email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="mt-1 w-full rounded-card border border-surface bg-surface px-4 py-3 outline-none focus:border-accent"
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs uppercase tracking-wider text-muted">Hourly rate (€)</span>
-            <input
-              type="number"
-              min="1"
-              value={hourlyEuros}
-              onChange={(e) => setHourlyEuros(e.target.value)}
-              placeholder="30"
-              className="money mt-1 w-full rounded-card border border-surface bg-surface px-4 py-3 text-2xl outline-none focus:border-accent"
-            />
-          </label>
-          {hourlyCents > 0 && (
-            <div className="rounded-card bg-surface p-4">
-              <p className="text-xs uppercase tracking-wider text-muted">Your scroll price</p>
-              <p className="money mt-1 text-3xl text-burn">{eurosExact(perMinuteCents)}/min</p>
-              <p className="mt-2 text-xs text-muted">
-                Every minute in a vice app now costs exactly one minute of your
-                working life. Seems fair. It is.
-              </p>
-            </div>
-          )}
           <button
             disabled={!email.includes('@') || hourlyCents <= 0}
             onClick={() => setStep(2)}
-            className="w-full rounded-card bg-accent px-6 py-4 font-semibold text-bg transition enabled:hover:brightness-110 disabled:opacity-30"
+            className={ctaClass}
           >
-            Continue
+            CONTINUE
           </button>
         </section>
       )}
 
       {step === 2 && (
-        <section className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold">The Hostage Ladder</h1>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
-              Five things you actually want, cheapest to dearest. When your
-              meter crosses one of their prices, we will let you know exactly
-              what you just bought us instead of yourself.
+        <section className="mt-6 space-y-5">
+          <div className={cardClass}>
+            <h1 className="text-2xl font-extrabold text-white">
+              What are you saving for? <span className="text-zinc-500">(optional)</span>
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Name up to 5 things you actually want. If you do, the cat will
+              taunt you with them by name when you burn money. If you skip
+              this, it will simply brag about the garbage it bought instead.
+              Both are valid lives.
             </p>
-          </div>
-          {anchors.map((a, i) => (
-            <div key={i} className="rounded-card bg-surface p-4">
-              <p className="money mb-2 text-xs text-muted">
-                TIER {i + 1} · e.g. {TIER_SUGGESTIONS[i].hint} (~€{TIER_SUGGESTIONS[i].price})
-              </p>
-              <div className="flex gap-3">
-                <input
-                  value={a.name}
-                  onChange={(e) =>
-                    setAnchors(anchors.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
-                  }
-                  placeholder={TIER_SUGGESTIONS[i].hint}
-                  className="flex-1 rounded-lg border border-bg bg-bg px-3 py-2 outline-none focus:border-accent"
-                />
-                <input
-                  type="number"
-                  min="1"
-                  value={a.priceEuros}
-                  onChange={(e) =>
-                    setAnchors(
-                      anchors.map((x, j) => (j === i ? { ...x, priceEuros: e.target.value } : x)),
-                    )
-                  }
-                  placeholder={String(TIER_SUGGESTIONS[i].price)}
-                  className="money w-24 rounded-lg border border-bg bg-bg px-3 py-2 outline-none focus:border-accent"
-                />
-              </div>
+            <div className="mt-4 space-y-3">
+              {wishes.map((w, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    value={w.name}
+                    onChange={(e) =>
+                      setWishes(wishes.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
+                    }
+                    placeholder={WISH_HINTS[i]}
+                    className={`${inputClass} flex-1`}
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    value={w.priceEuros}
+                    onChange={(e) =>
+                      setWishes(
+                        wishes.map((x, j) => (j === i ? { ...x, priceEuros: e.target.value } : x)),
+                      )
+                    }
+                    placeholder="€"
+                    className={`${inputClass} w-24 font-mono tabular-nums`}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-          {anchorErrors.length > 0 && (
-            <p className="text-xs text-muted">{anchorErrors[0]}</p>
-          )}
+            {halfFilled && (
+              <p className="mt-3 font-mono text-xs text-red-500">
+                ERR: a wish needs both a name and a price. Or neither. Pick one.
+              </p>
+            )}
+          </div>
           <div className="flex gap-3">
-            <button onClick={() => setStep(1)} className="rounded-card bg-surface px-6 py-4 text-muted">
-              Back
+            <button onClick={() => setStep(1)} className={backClass}>
+              BACK
             </button>
             <button
-              disabled={anchorErrors.length > 0}
+              disabled={halfFilled}
               onClick={() => setStep(3)}
-              className="flex-1 rounded-card bg-accent px-6 py-4 font-semibold text-bg transition enabled:hover:brightness-110 disabled:opacity-30"
+              className={`${ctaClass} flex-1`}
             >
-              Lock them in
+              {filledWishes.length > 0 ? `LOCK IN ${filledWishes.length} HOSTAGE${filledWishes.length > 1 ? 'S' : ''}` : 'SKIP — NOTHING IS SACRED'}
             </button>
           </div>
         </section>
       )}
 
       {step === 3 && (
-        <section className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold">The Contract</h1>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
-              Here is what you already know: the day this starts working,
-              you will want to delete it. So decide now — while you still mean
-              it — what running away costs.
+        <section className="mt-6 space-y-5">
+          <div className={cardClass}>
+            <h1 className="text-2xl font-extrabold text-white">The Contract</h1>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              The day this starts working, you will want to delete it. Decide
+              now — while you still mean it — what running away costs.
             </p>
-          </div>
 
-          <div>
-            <p className="text-xs uppercase tracking-wider text-muted">Lock-in period</p>
+            <p className="mt-4 font-mono text-[10px] tracking-widest text-zinc-500">LOCK-IN</p>
             <div className="mt-2 grid grid-cols-2 gap-3">
               {([7, 30] as const).map((d) => (
                 <button
                   key={d}
                   onClick={() => setLockinDays(d)}
-                  className={`rounded-card border px-4 py-4 font-semibold transition ${
+                  className={`rounded-xl border-4 px-4 py-3 font-bold ${
                     lockinDays === d
-                      ? 'border-accent bg-accent/10 text-accent'
-                      : 'border-surface bg-surface text-muted'
+                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400'
+                      : 'border-gray-800 bg-zinc-950 text-zinc-500'
                   }`}
                 >
-                  {d === 7 ? '1 week' : '1 month'}
+                  {d === 7 ? '1 WEEK' : '1 MONTH'}
                 </button>
               ))}
             </div>
-          </div>
 
-          <div>
-            <div className="flex items-baseline justify-between">
-              <p className="text-xs uppercase tracking-wider text-muted">Deletion fee</p>
-              <p className="money text-2xl text-burn">{euros(feeEuros * 100)}</p>
+            <div className="mt-5 flex items-baseline justify-between">
+              <p className="font-mono text-[10px] tracking-widest text-zinc-500">DELETION FEE</p>
+              <p className="font-mono text-2xl font-bold tabular-nums text-red-500">
+                {euros(feeEuros * 100)}
+              </p>
             </div>
             <input
               type="range"
@@ -267,78 +280,81 @@ export default function OnboardingPage() {
               step="5"
               value={feeEuros}
               onChange={(e) => setFeeEuros(Number(e.target.value))}
-              className="mt-3 w-full accent-[#FF3B2F]"
+              className="mt-2 w-full accent-red-500"
             />
-            <p className="mt-2 text-xs leading-relaxed text-muted">
-              Delete the app or strip its permissions before your lock-in ends
-              and we charge this. Automatically. No call, no email thread, no
-              &quot;are you sure&quot;. You are signing the &quot;are you sure&quot; right now.
+            <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+              Delete the app or strip its permissions before lock-in ends and
+              this is charged. Automatically. You are signing the
+              &quot;are you sure&quot; right now.
             </p>
             {feeEuros === 0 && (
-              <div className="mt-3 rounded-card border border-gold/40 bg-gold/10 p-4 text-sm text-gold">
-                <p className="font-semibold">€0 — Not Recommended.</p>
-                <p className="mt-1 text-gold/80">
-                  A contract with no teeth is a suggestion, and you have already
-                  ignored a decade of suggestions. But it&apos;s your funeral.
-                  We&apos;ll allow it.
+              <div className="mt-3 rounded-lg border-2 border-yellow-500 bg-yellow-500/10 p-3">
+                <p className="text-sm font-bold text-yellow-400">€0 — Not Recommended.</p>
+                <p className="mt-1 text-xs text-yellow-400/80">
+                  A contract with no teeth is a suggestion, and you have ignored
+                  a decade of suggestions. Allowed. Not respected.
                 </p>
               </div>
             )}
-          </div>
 
-          <div className="rounded-card bg-surface p-4 text-sm leading-relaxed">
-            <p className="money mb-2 text-xs tracking-widest text-accent">TERMS · 2026-07-v1</p>
-            <ul className="space-y-1 text-muted">
-              <li>· Scrolling: {eurosExact(perMinuteCents)}/min, 20% kept, 80% walkable (2:1, 24h).</li>
-              <li>· Lock-in: {lockinDays === 7 ? '1 week' : '1 month'} from today.</li>
-              <li>· Desertion during lock-in: {euros(feeEuros * 100)}, charged off-session.</li>
-              <li>· After lock-in: cancel free, or renew. Your choice, made honestly.</li>
-            </ul>
+            <div className="mt-5 rounded-lg border-2 border-gray-800 bg-zinc-950 p-4">
+              <p className="font-mono text-[10px] tracking-widest text-emerald-400">
+                TERMS · 2026-07-v2-arcade
+              </p>
+              <ul className="mt-2 space-y-1 font-mono text-xs leading-relaxed text-zinc-400">
+                <li>&gt; scroll: {eurosExact(perMinuteCents)}/min · 20% kept · 80% walkable 2:1, 24h</li>
+                <li>&gt; lock-in: {lockinDays === 7 ? '1 week' : '1 month'} from today</li>
+                <li>&gt; desertion: {euros(feeEuros * 100)}, charged off-session</li>
+                <li>
+                  &gt; hostages: {filledWishes.length > 0 ? `${filledWishes.length} named` : 'none — pure taunts'}
+                </li>
+              </ul>
+            </div>
           </div>
-
           <div className="flex gap-3">
-            <button onClick={() => setStep(2)} className="rounded-card bg-surface px-6 py-4 text-muted">
-              Back
+            <button onClick={() => setStep(2)} className={backClass}>
+              BACK
             </button>
             <button
               disabled={busy}
               onClick={submitAndVault}
-              className="flex-1 rounded-card bg-burn px-6 py-4 font-semibold text-bg transition enabled:hover:brightness-110 disabled:opacity-50"
+              className="flex-1 rounded-xl border-4 border-gray-800 bg-red-500 px-6 py-4 font-extrabold text-zinc-950 transition enabled:hover:brightness-110 disabled:opacity-50"
             >
-              {busy ? 'Filing the paperwork…' : 'Sign it'}
+              {busy ? 'FILING…' : 'SIGN IT'}
             </button>
           </div>
         </section>
       )}
 
       {step === 4 && clientSecret && userId && (
-        <section className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold">The Vault</h1>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
+        <section className="mt-6 space-y-5">
+          <div className={cardClass}>
+            <h1 className="text-2xl font-extrabold text-white">The Vault</h1>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
               We are not charging you today. We are making sure we{' '}
               <em>can</em> — while you scroll, while you sleep, while you
-              pretend this app doesn&apos;t exist. Card goes in, contract goes
-              live.
+              pretend this app doesn&apos;t exist.
             </p>
+            <div className="mt-4">
+              <Elements
+                stripe={stripePromise}
+                options={{
+                  clientSecret,
+                  appearance: {
+                    theme: 'night',
+                    variables: {
+                      colorPrimary: '#10B981',
+                      colorBackground: '#09090B',
+                      colorText: '#FFFFFF',
+                      borderRadius: '12px',
+                    },
+                  },
+                }}
+              >
+                <VaultCardForm userId={userId} onDone={() => router.push('/dashboard')} />
+              </Elements>
+            </div>
           </div>
-          <Elements
-            stripe={stripePromise}
-            options={{
-              clientSecret,
-              appearance: {
-                theme: 'night',
-                variables: {
-                  colorPrimary: '#2EDB6A',
-                  colorBackground: '#151812',
-                  colorText: '#F2F4EF',
-                  borderRadius: '12px',
-                },
-              },
-            }}
-          >
-            <VaultCardForm userId={userId} onDone={() => router.push('/dashboard')} />
-          </Elements>
         </section>
       )}
     </main>
@@ -380,19 +396,14 @@ function VaultCardForm({ userId, onDone }: { userId: string; onDone: () => void 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PaymentElement />
-      {error && <p className="text-sm text-burn">{error}</p>}
-      <button
-        disabled={busy || !stripe}
-        onClick={vault}
-        className="w-full rounded-card bg-accent px-6 py-4 font-semibold text-bg transition enabled:hover:brightness-110 disabled:opacity-50"
-      >
-        {busy ? 'Vaulting…' : 'Arm the meter'}
+      {error && <p className="font-mono text-sm text-red-500">ERR: {error}</p>}
+      <button disabled={busy || !stripe} onClick={vault} className={ctaClass}>
+        {busy ? 'VAULTING…' : 'ARM THE METER'}
       </button>
-      <p className="text-center text-xs text-muted">
-        Stored by Stripe, not by us. Charged by us, not by Stripe&apos;s
-        conscience.
+      <p className="text-center font-mono text-xs text-zinc-600">
+        stored by Stripe, not by us. charged by us, not by Stripe&apos;s conscience.
       </p>
     </div>
   );

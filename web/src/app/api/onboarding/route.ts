@@ -9,7 +9,7 @@ import {
 } from '@/lib/penalty';
 
 const anchorSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().trim().min(1),
   priceCents: z.number().int().positive(),
   emoji: z.string().max(8).optional(),
 });
@@ -20,9 +20,11 @@ const bodySchema = z.object({
   // The user states what one hour of their time is worth — no guessing.
   hourlyRateCents: z.number().int().positive(),
 
-  // Exactly 5 anchors, tier 1..5, strictly ascending prices
-  // (coffee → book → dinner → AirPods → PS5).
-  anchorItems: z.array(anchorSchema).length(ANCHOR_TIER_COUNT),
+  // Up to 5 wishlist products — COMPLETELY OPTIONAL. With them, the taunts
+  // get personal ("I took your PlayStation money!"); without them, the app
+  // falls back to pure taunts. Tier levels are assigned by ascending price
+  // server-side, so the ladder semantics survive without user-facing rules.
+  anchorItems: z.array(anchorSchema).max(ANCHOR_TIER_COUNT).default([]),
 
   // Commitment contract. deletionFeeCents 0 is legal but the UI labels it
   // "Not Recommended" — enforcement of the discouragement is a frontend job.
@@ -44,14 +46,9 @@ export async function POST(req: Request) {
   // TODO(auth): replace email-in-body with a real session once auth lands.
   const body = bodySchema.parse(await req.json());
 
-  for (let i = 1; i < body.anchorItems.length; i++) {
-    if (body.anchorItems[i].priceCents <= body.anchorItems[i - 1].priceCents) {
-      return NextResponse.json(
-        { error: 'anchor_prices_must_escalate', tier: i + 1 },
-        { status: 400 },
-      );
-    }
-  }
+  // Cheapest wish = tier 1. Sorting here (not in the UI) keeps the taunt
+  // ladder's "crossed in order" semantics without burdening the form.
+  const rankedAnchors = [...body.anchorItems].sort((a, b) => a.priceCents - b.priceCents);
 
   const customer = await stripe.customers.create({ email: body.email });
   const now = new Date();
@@ -64,7 +61,7 @@ export async function POST(req: Request) {
       sessionCapCents: body.sessionCapCents ?? 3000,
       stripeCustomerId: customer.id,
       anchorItems: {
-        create: body.anchorItems.map((item, idx) => ({
+        create: rankedAnchors.map((item, idx) => ({
           tierLevel: idx + 1,
           name: item.name,
           priceCents: item.priceCents,

@@ -49,6 +49,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Health Connect blocks permission requests unless the app
+                 declares a privacy-policy/rationale target. This action covers
+                 Android <14; the ViewPermissionUsageActivity alias below covers
+                 Android 14+. Both must exist. -->
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
         </activity>
 
         <!-- Health Connect shows this activity as the app's privacy policy target

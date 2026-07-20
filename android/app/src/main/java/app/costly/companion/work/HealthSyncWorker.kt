@@ -1,11 +1,13 @@
 package app.costly.companion.work
 
 import android.content.Context
+import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.work.Constraints
@@ -23,40 +25,59 @@ import app.costly.companion.net.WalkingSyncRequest
 import java.io.IOException
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 /**
- * THE SWEAT EQUITY SYNC.
+ * THE SWEAT EQUITY SYNC — both physical fronts of the two-front war.
  *
  * Health Connect is on-device only — no server can poll it — so this worker
- * is the sole bridge between the user's legs and their money:
+ * is the sole bridge between the user's legs and their money. Per run:
  *
- *  1. discover PENDING redemption tasks via GET /api/dashboard (the app only
- *     knows its userId; taskIds live server-side);
- *  2. per task, read walking from Health Connect for [session end → now]:
- *     walking-type ExerciseSessions are authoritative; if none exist, fall
- *     back to a steps estimate (100 steps ≈ 1 active minute);
- *  3. POST the CUMULATIVE minutes to /api/redemptions/:taskId/sync — the
- *     backend takes max(), so replays and overlaps are harmless.
+ *  FRONT A — daily laziness harvest:
+ *    aggregate today's total step count (midnight → now) via the Health
+ *    Connect aggregate API (COUNT_TOTAL dedupes overlapping sources, e.g. a
+ *    watch and a phone both counting the same walk). Currently logged for
+ *    verification; the backend POST lands when the daily-laziness endpoint
+ *    exists.
  *
- * Runs every 4h (a redemption window is 24h — plenty of chances), plus
- * manually from the arming UI's "Sync my walk" button.
+ *  FRONT B — redemption sync (releases Stripe holds):
+ *    1. discover PENDING redemption tasks via GET /api/dashboard;
+ *    2. per task, read walking for [session end → now]: walking-type
+ *       ExerciseSessions are authoritative; else steps ÷ 100 as a
+ *       conservative estimate;
+ *    3. POST the CUMULATIVE minutes to /api/redemptions/:taskId/sync —
+ *       the backend takes max(), so replays are harmless.
+ *
+ * Runs every 4h plus manually from the arming UI's "Sync my walk" button.
  */
 class HealthSyncWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val userId = Prefs.userId(applicationContext) ?: return Result.success()
+        val userId = Prefs.userId(applicationContext)
+            ?: return Result.success() // unarmed — nothing to prove, nobody to punish
 
         if (HealthConnectClient.getSdkStatus(applicationContext) != HealthConnectClient.SDK_AVAILABLE) {
-            return Result.success() // no Health Connect on device — nothing to read
+            Log.e(TAG, "Health Connect unavailable on this device — the system is blind to laziness")
+            return Result.failure()
         }
         val client = HealthConnectClient.getOrCreate(applicationContext)
+
         val granted = client.permissionController.getGrantedPermissions()
-        if (REQUIRED_PERMISSIONS.none { it in granted }) {
-            return Result.success() // user never granted health reads — the UI nags, not us
+        if (HealthPermission.getReadPermission(StepsRecord::class) !in granted) {
+            Log.e(TAG, "READ_STEPS not granted — cannot see the step count; arming UI must re-request")
+            return Result.failure()
         }
 
+        // ── FRONT A: today's total steps (midnight → now) ─────────────────
+        val totalSteps = fetchTodaySteps(client)
+        Log.d(TAG, "Total steps today: $totalSteps")
+        // TODO(laziness): POST totalSteps to the backend once the
+        // daily-laziness endpoint exists, so the cat can price inactivity.
+
+        // ── FRONT B: redemption sync (existing hold-release path) ─────────
         val pending = try {
             Network.api.dashboard(userId).holds
                 .filter { it.redemption?.status == "PENDING" }
@@ -81,6 +102,29 @@ class HealthSyncWorker(context: Context, params: WorkerParameters) :
             }
         }
         return Result.success()
+    }
+
+    /**
+     * Aggregate today's step count from midnight (device timezone) to now.
+     * aggregate() + COUNT_TOTAL is the correct primitive here: Health Connect
+     * merges and dedupes records from all contributing apps/devices, which
+     * naive readRecords + sum would double-count.
+     */
+    private suspend fun fetchTodaySteps(client: HealthConnectClient): Long {
+        val zone = ZoneId.systemDefault()
+        val midnight = LocalDate.now(zone).atStartOfDay(zone).toInstant()
+        return runCatching {
+            val result = client.aggregate(
+                AggregateRequest(
+                    metrics = setOf(StepsRecord.COUNT_TOTAL),
+                    timeRangeFilter = TimeRangeFilter.between(midnight, Instant.now()),
+                ),
+            )
+            result[StepsRecord.COUNT_TOTAL] ?: 0L
+        }.getOrElse {
+            Log.e(TAG, "step aggregation failed", it)
+            0L
+        }
     }
 
     private suspend fun readWalkingMinutes(
@@ -111,6 +155,7 @@ class HealthSyncWorker(context: Context, params: WorkerParameters) :
     }
 
     companion object {
+        private const val TAG = "CostlyHealth"
         private const val PERIODIC_NAME = "costly-health-sync"
         private const val ONESHOT_NAME = "costly-health-sync-now"
 

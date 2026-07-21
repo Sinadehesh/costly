@@ -34,7 +34,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -44,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import app.costly.companion.Prefs
+import app.costly.companion.net.DeviceLinker
 import app.costly.companion.overlay.OverlayPermission
 import app.costly.companion.spy.HeuristicSpyService
 import app.costly.companion.spy.UsageAccess
@@ -74,17 +77,21 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ArmingScreen() {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var userId by remember { mutableStateOf(Prefs.userId(context) ?: "") }
-    var armed by remember { mutableStateOf(Prefs.userId(context) != null) }
+    var otp by remember { mutableStateOf("") }
+    var linked by remember { mutableStateOf(Prefs.isLinked(context)) }
+    var linking by remember { mutableStateOf(false) }
+    var linkError by remember { mutableStateOf<String?>(null) }
     var monitoringOn by remember { mutableStateOf(UsageAccess.isGranted(context)) }
     var healthGranted by remember { mutableStateOf(false) }
     var syncRequested by remember { mutableStateOf(false) }
     var overlayOn by remember { mutableStateOf(OverlayPermission.canDraw(context)) }
     var showRestrictedWarning by remember { mutableStateOf(false) }
 
-    // Once armed AND Usage Access is granted, the heuristic engine can run.
+    // Once linked AND Usage Access is granted, the heuristic engine can run.
     fun startEngineIfReady() {
-        if (Prefs.userId(context) != null && UsageAccess.isGranted(context)) {
+        if (Prefs.isLinked(context) && UsageAccess.isGranted(context)) {
             HeuristicSpyService.start(context)
         }
     }
@@ -155,15 +162,15 @@ fun ArmingScreen() {
         )
 
         Text(
-            if (armed && monitoringOn) "SYSTEM ARMED" else "SYSTEM UNARMED",
-            color = if (armed && monitoringOn) Accent else Burn,
+            if (linked && monitoringOn) "SYSTEM ARMED" else "SYSTEM UNARMED",
+            color = if (linked && monitoringOn) Accent else Burn,
             fontFamily = FontFamily.Monospace,
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
         )
         Text(
-            if (armed && monitoringOn)
-                "Watching for user $userId. Every confirmed doomscroll is billed. Every 12 hours we phone home. You know the terms — you wrote them."
+            if (linked && monitoringOn)
+                "Device linked to user $userId. Every confirmed doomscroll is billed. Every 12 hours we phone home. You know the terms — you wrote them."
             else
                 "Nothing is being metered. Nothing is being proven. Your contract can still breach you for this. Finish the setup.",
             color = Muted,
@@ -176,39 +183,57 @@ fun ArmingScreen() {
             shape = RoundedCornerShape(16.dp),
         ) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("1 · Who are we billing?", color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Paste the user ID from your web dashboard (Settings → device linking).",
+                    "1 · Link this device" + if (linked) " — linked" else "",
+                    color = if (linked) Accent else MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    "Open your web dashboard, generate a 6-digit link code, and enter it " +
+                        "here. We trade it for a device key — your user ID never rides in a " +
+                        "request again.",
                     color = Muted, fontSize = 12.sp,
                 )
                 OutlinedTextField(
-                    value = userId,
-                    onValueChange = { userId = it },
+                    value = otp,
+                    onValueChange = { if (it.length <= 6 && it.all(Char::isDigit)) otp = it },
                     singleLine = true,
-                    label = { Text("userId") },
+                    enabled = !linking,
+                    label = { Text("6-digit code") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Accent,
                         unfocusedBorderColor = Muted,
                     ),
                 )
+                linkError?.let { Text(it, color = Burn, fontSize = 12.sp) }
                 Button(
                     onClick = {
-                        Prefs.setUserId(context, userId)
-                        armed = true
-                        HeartbeatWorker.schedule(context)
-                        HealthSyncWorker.schedule(context)
-                        HeartbeatWorker.pingNow(context) // first proof of life arms the switch
-                        startEngineIfReady() // launches the spy if Usage Access is already on
-                        if (Build.VERSION.SDK_INT >= 33) {
-                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        linking = true
+                        linkError = null
+                        scope.launch {
+                            val result = DeviceLinker.link(context, otp)
+                            linking = false
+                            result
+                                .onSuccess {
+                                    otp = ""
+                                    userId = Prefs.userId(context) ?: ""
+                                    linked = true
+                                    HeartbeatWorker.schedule(context)
+                                    HealthSyncWorker.schedule(context)
+                                    HeartbeatWorker.pingNow(context)
+                                    startEngineIfReady()
+                                    if (Build.VERSION.SDK_INT >= 33) {
+                                        notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    }
+                                }
+                                .onFailure { linkError = "Link failed. Check the code — it expires fast." }
                         }
                     },
-                    enabled = userId.isNotBlank(),
+                    enabled = otp.length == 6 && !linking,
                     colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text(if (armed) "Re-arm" else "Arm the switch") }
+                ) { Text(if (linking) "Linking…" else if (linked) "Re-link" else "Link device") }
             }
         }
 
@@ -332,7 +357,7 @@ fun ArmingScreen() {
                         HealthSyncWorker.syncNow(context)
                         syncRequested = true
                     },
-                    enabled = armed,
+                    enabled = linked,
                     colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Bg),
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(if (syncRequested) "Syncing — check the dashboard" else "Sync my walk NOW") }

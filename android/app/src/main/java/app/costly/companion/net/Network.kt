@@ -17,19 +17,27 @@ object Network {
         .add(KotlinJsonAdapterFactory())
         .build()
 
+    /**
+     * The per-device secret from /api/device/link. Set at app start from Prefs
+     * and updated on link. When present, attached as x-device-secret on every
+     * request — which is how the server authenticates the device and derives
+     * the user (Phase 1). The linking calls themselves carry no secret yet;
+     * they're authorized by the one-time OTP in the body.
+     */
+    @Volatile
+    var deviceSecret: String? = null
+
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
-        // Authenticate every device→backend call with the shared secret. The
-        // backend's DEVICE_API_SECRET check is still a TODO on the routes, so
-        // this is forward-compatible: harmless until the server enforces it,
-        // and required the moment it does.
         .addInterceptor { chain ->
-            chain.proceed(
-                chain.request().newBuilder()
-                    .header("x-device-secret", BuildConfig.DEVICE_API_SECRET)
-                    .build(),
-            )
+            val secret = deviceSecret
+            val request = if (secret != null) {
+                chain.request().newBuilder().header("x-device-secret", secret).build()
+            } else {
+                chain.request()
+            }
+            chain.proceed(request)
         }
         .apply {
             if (BuildConfig.DEBUG) {

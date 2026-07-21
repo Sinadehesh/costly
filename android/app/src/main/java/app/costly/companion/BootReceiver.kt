@@ -18,7 +18,9 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
         HeartbeatWorker.schedule(context)
         HealthSyncWorker.schedule(context)
-        if (Prefs.userId(context) != null) {
+        // Network.deviceSecret is already hydrated by CostlyApp.onCreate, which
+        // runs before this receiver on process start.
+        if (Prefs.isLinked(context)) {
             HeartbeatWorker.pingNow(context)
             // Best-effort: starting a foreground service from BOOT_COMPLETED is
             // an allowed exemption, but OEMs vary — start() swallows a refusal.

@@ -18,14 +18,9 @@ android {
         // Point the debug build at your local machine (adb reverse tcp:3000
         // tcp:3000, or your LAN IP). Release should point at the deployed API.
         buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:3000/\"")
-
-        // Shared secret sent as the x-device-secret header on every request,
-        // matching DEVICE_API_SECRET on the backend. Sourced from a Gradle
-        // property so the real value never lands in git — set it in
-        // ~/.gradle/gradle.properties or pass -PcostlyDeviceApiSecret=...
-        // The "change-me" fallback matches web/.env.example for local dev.
-        val deviceApiSecret = (project.findProperty("costlyDeviceApiSecret") as String?) ?: "change-me"
-        buildConfigField("String", "DEVICE_API_SECRET", "\"$deviceApiSecret\"")
+        // (Phase 1) The old shared DEVICE_API_SECRET build field is retired —
+        // each device now gets a per-device secret from /api/device/link at
+        // runtime, held in SharedPreferences, not baked into the build.
     }
 
     buildTypes {

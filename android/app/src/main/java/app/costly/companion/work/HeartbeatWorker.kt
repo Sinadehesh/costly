@@ -44,16 +44,17 @@ class HeartbeatWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val userId = Prefs.userId(applicationContext)
-            ?: return Result.success() // unarmed: nothing to prove, nobody to bill
+        if (!Prefs.isLinked(applicationContext)) {
+            return Result.success() // unlinked: nothing to prove, no auth to send
+        }
 
         return try {
             val response = Network.api.deviceHeartbeat(
                 DeviceHeartbeatRequest(
                     // DTO field name kept for backend compatibility; it now
                     // reports whether monitoring (Usage Access) is granted,
-                    // since the AccessibilityService is gone.
-                    userId = userId,
+                    // since the AccessibilityService is gone. userId is derived
+                    // server-side from x-device-secret (Phase 1).
                     accessibilityEnabled = UsageAccess.isGranted(applicationContext),
                     appVersion = BuildConfig.VERSION_NAME,
                 ),

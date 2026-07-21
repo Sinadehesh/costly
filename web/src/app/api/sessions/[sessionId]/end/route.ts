@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe';
+import { requireDevice } from '@/lib/deviceAuth';
 import {
   REDEMPTION_WINDOW_HOURS,
   requiredWalkingMinutes,
@@ -21,13 +22,19 @@ import {
  *      Cancelled if the walk is completed in 24h; captured by the expiry
  *      job if not. (Auth holds live 7 days on most cards, so 24h is safe.)
  */
-export async function POST(_req: Request, ctx: { params: Promise<{ sessionId: string }> }) {
+export async function POST(req: Request, ctx: { params: Promise<{ sessionId: string }> }) {
+  const auth = await requireDevice(req);
+  if (auth instanceof NextResponse) return auth;
+
   const { sessionId } = await ctx.params;
 
   const session = await prisma.session.findUniqueOrThrow({
     where: { id: sessionId },
     include: { user: true },
   });
+  if (session.userId !== auth.userId) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
   if (session.status !== 'ACTIVE') {
     return NextResponse.json({ error: 'session_not_active' }, { status: 409 });
   }

@@ -44,6 +44,14 @@ enum ContractStatus {
   BREACHED  // heartbeats went dark during lock-in → deletion fee charged
 }
 
+// Phase 2 — Settle Up. An off-session charge that fails (SCA required, card
+// declined) flips the account to PAYMENT_FAILED; the heartbeat endpoint then
+// returns 402 and the client hard-locks into "Settle Up" until resolved.
+enum AccountStatus {
+  ACTIVE
+  PAYMENT_FAILED
+}
+
 model User {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -70,9 +78,46 @@ model User {
 
   currency String @default("eur")
 
+  // ── Account standing (Phase 2: Settle Up) ──────────────────────────────
+  accountStatus   AccountStatus @default(ACTIVE)
+  paymentFailedAt DateTime?
+  settleUpUrl     String? // Stripe hosted-invoice / payment URL the Settle Up screen opens
+
+  // ── Device linking (Phase 1) ───────────────────────────────────────────
+  // Short-lived 6-digit OTP the (JWT-authenticated) web dashboard issues; the
+  // Android client exchanges it at /api/device/link for a per-device secret.
+  // Stored HASHED, never plaintext. @unique so a given active code maps to at
+  // most one user (the link endpoint sends only the OTP, no userId) — the
+  // endpoint regenerates on the rare collision and owns TTL + attempt limits.
+  deviceLinkOtpHash      String?   @unique
+  deviceLinkOtpExpiresAt DateTime?
+
   sessions    Session[]
   anchorItems AnchorItem[]
   contracts   CommitmentContract[]
+  devices     Device[]
+}
+
+// Phase 1 — one row per linked Android device. The raw x-device-secret is
+// returned to the client exactly ONCE at link time and never persisted; only
+// its SHA-256 hash lives here, so a DB leak can't authenticate a device. The
+// header-enforcement wrapper hashes the incoming secret, looks it up by
+// secretHash, rejects if revokedAt is set, and derives userId from the row —
+// which is how userId leaves the request bodies entirely. Supports multiple
+// devices per user + soft revocation.
+model Device {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  secretHash String  @unique // sha256(x-device-secret); raw never stored
+  label      String? // optional, e.g. "Pixel 8"
+
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime?
+  revokedAt  DateTime? // soft-revoke without losing history
+
+  @@index([userId])
 }
 
 // The escalating hostage ladder: 5 items at rising price tiers

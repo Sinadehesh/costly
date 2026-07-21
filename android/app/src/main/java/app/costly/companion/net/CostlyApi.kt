@@ -8,6 +8,10 @@ import retrofit2.http.Query
 
 interface CostlyApi {
 
+    /** Device linking — exchanges the dashboard OTP for a per-device secret. */
+    @POST("api/device/link")
+    suspend fun linkDevice(@Body body: LinkDeviceRequest): LinkDeviceResponse
+
     @POST("api/sessions/start")
     suspend fun startSession(@Body body: StartSessionRequest): StartSessionResponse
 

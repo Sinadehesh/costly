@@ -11,6 +11,7 @@ object Prefs {
 
     private const val FILE = "costly"
     private const val KEY_USER_ID = "userId"
+    private const val KEY_DEVICE_SECRET = "deviceSecret"
     private const val KEY_BLOCKED = "blockedPackages"
     private const val KEY_ACTIVE_SESSION = "activeSessionId"
     private const val KEY_RATE = "penaltyRateCentsPerMin"
@@ -42,6 +43,21 @@ object Prefs {
 
     fun setUserId(context: Context, userId: String) =
         sp(context).edit().putString(KEY_USER_ID, userId.trim()).apply()
+
+    // ── Device secret (Phase 1) — the x-device-secret from /api/device/link ──
+
+    /** Presence of a device secret is what "armed/linked" now means. */
+    fun deviceSecret(context: Context): String? =
+        sp(context).getString(KEY_DEVICE_SECRET, null)?.takeIf { it.isNotBlank() }
+
+    fun isLinked(context: Context): Boolean = deviceSecret(context) != null
+
+    /** Persist the linking result: the secret + the userId it belongs to. */
+    fun setLink(context: Context, deviceSecret: String, userId: String) =
+        sp(context).edit()
+            .putString(KEY_DEVICE_SECRET, deviceSecret)
+            .putString(KEY_USER_ID, userId.trim())
+            .apply()
 
     fun blockedPackages(context: Context): Set<String> =
         sp(context).getStringSet(KEY_BLOCKED, null) ?: DEFAULT_BLOCKED

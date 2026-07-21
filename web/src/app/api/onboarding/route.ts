@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe';
+import { SESSION_COOKIE, signSession } from '@/lib/jwt';
 import {
   ANCHOR_TIER_COUNT,
   MAX_DELETION_FEE_CENTS,
@@ -111,10 +112,20 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json({
+  // Mint the web session JWT so the dashboard can request a device-link OTP.
+  // (Phase 1 enabling wiring — additive; no existing onboarding logic changed.)
+  const res = NextResponse.json({
     userId: user.id,
     penaltyRateCentsPerMin: user.penaltyRateCentsPerMin,
     contractId: user.contracts[0].id,
     lockinEndsAt: user.contracts[0].lockinEndsAt,
   });
+  res.cookies.set(SESSION_COOKIE, await signSession(user.id), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30,
+  });
+  return res;
 }

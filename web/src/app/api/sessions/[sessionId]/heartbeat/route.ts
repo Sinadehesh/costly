@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { requireDevice } from '@/lib/deviceAuth';
 import { newlyCrossedTiers, sessionPenaltyCents } from '@/lib/penalty';
 
 const bodySchema = z.object({
   // Seconds of ACTIVE scrolling since the last heartbeat. The device is the
-  // source of truth for idle detection: the AccessibilityService only counts
-  // seconds backed by TYPE_VIEW_SCROLLED events within the idle window, so a
-  // phone left face-up on TikTok while its owner sleeps reports 0.
+  // source of truth for idle detection: the heuristic engine only counts
+  // seconds it confirmed as interactive doomscrolling, so a phone left
+  // face-up on TikTok reports 0.
   activeSecondsDelta: z.number().int().min(0).max(120),
   scrolledSinceLast: z.boolean(),
 });
@@ -25,6 +26,9 @@ const bodySchema = z.object({
  *   every tier taunts exactly once per session.
  */
 export async function POST(req: Request, ctx: { params: Promise<{ sessionId: string }> }) {
+  const auth = await requireDevice(req);
+  if (auth instanceof NextResponse) return auth;
+
   const { sessionId } = await ctx.params;
   const body = bodySchema.parse(await req.json());
 
@@ -32,6 +36,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ sessionId: str
     where: { id: sessionId },
     include: { user: { include: { anchorItems: true } } },
   });
+  // A device may only touch its own user's sessions.
+  if (session.userId !== auth.userId) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
   if (session.status !== 'ACTIVE') {
     return NextResponse.json({ error: 'session_not_active' }, { status: 409 });
   }

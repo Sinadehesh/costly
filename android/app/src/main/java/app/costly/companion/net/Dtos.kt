@@ -7,10 +7,25 @@ package app.costly.companion.net
  * them in lockstep with the route handlers in web/src/app/api.
  */
 
+// ── Device linking (Phase 1) ────────────────────────────────────────────────
+
+data class LinkDeviceRequest(
+    val otp: String,
+    val label: String? = null,
+)
+
+data class LinkDeviceResponse(
+    // Returned exactly once; stored (hashed nowhere on-device — SharedPrefs
+    // holds it as-is) and sent as x-device-secret on every future call.
+    val deviceSecret: String,
+    val userId: String,
+    val deviceId: String,
+)
+
 // ── Sessions ──────────────────────────────────────────────────────────────
 
+// userId removed — the server derives it from x-device-secret (Phase 1).
 data class StartSessionRequest(
-    val userId: String,
     val appPackage: String,
 )
 
@@ -45,8 +60,8 @@ data class EndSessionResponse(
 
 // ── Dead man's switch ─────────────────────────────────────────────────────
 
+// userId removed — derived server-side from x-device-secret (Phase 1).
 data class DeviceHeartbeatRequest(
-    val userId: String,
     val accessibilityEnabled: Boolean? = null,
     val appVersion: String? = null,
 )

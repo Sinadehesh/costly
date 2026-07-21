@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe';
+import { requireDevice } from '@/lib/deviceAuth';
 
 const bodySchema = z.object({
   // CUMULATIVE verified active-walking minutes since session end, as reported
@@ -18,7 +19,9 @@ const bodySchema = z.object({
  * CANCELLED — the user gets their 80% back. Sweat equity, settled.
  */
 export async function POST(req: Request, ctx: { params: Promise<{ taskId: string }> }) {
-  // TODO(auth): verify DEVICE_API_SECRET header.
+  const auth = await requireDevice(req);
+  if (auth instanceof NextResponse) return auth;
+
   const { taskId } = await ctx.params;
   const body = bodySchema.parse(await req.json());
 
@@ -26,6 +29,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ taskId: string
     where: { id: taskId },
     include: { session: true },
   });
+  if (task.session.userId !== auth.userId) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
   if (task.status !== 'PENDING') {
     return NextResponse.json({ status: task.status, changed: false });
   }

@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { requireDevice } from '@/lib/deviceAuth';
 
 const bodySchema = z.object({
-  userId: z.string(),
   // Self-reported diagnostics — useful for support disputes ("the app was
   // installed, Android just killed the service"). Informational only; the
   // breach decision rests solely on ping recency.
@@ -20,17 +20,20 @@ const bodySchema = z.object({
  * 2 consecutive missed pings (>24h of silence) during an active lock-in.
  */
 export async function POST(req: Request) {
-  // TODO(auth): verify DEVICE_API_SECRET header from the companion service.
-  const body = bodySchema.parse(await req.json());
+  const auth = await requireDevice(req);
+  if (auth instanceof NextResponse) return auth;
+
+  // Body is now diagnostics-only; parse to validate shape (and reject junk).
+  bodySchema.parse(await req.json());
 
   const user = await prisma.user.update({
-    where: { id: body.userId },
+    where: { id: auth.userId },
     data: { lastHeartbeatAt: new Date() },
     include: { anchorItems: { orderBy: { tierLevel: 'asc' } } },
   });
 
   const activeContract = await prisma.commitmentContract.findFirst({
-    where: { userId: body.userId, status: 'ACTIVE' },
+    where: { userId: auth.userId, status: 'ACTIVE' },
     select: { id: true, lockinEndsAt: true, deletionFeeCents: true },
   });
 

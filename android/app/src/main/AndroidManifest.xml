@@ -36,12 +36,18 @@
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_DISTANCE" />
 
-    <!-- Android 14+ routes Health Connect permission requests through this. -->
     <queries>
+        <!-- Android 14+ routes Health Connect permission requests through this. -->
         <package android:name="com.google.android.apps.healthdata" />
         <intent>
             <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
         </intent>
+        <!-- Package visibility (Android 11+) so we can resolve the target apps'
+             UIDs for per-app network engagement. Specific packages, NOT
+             QUERY_ALL_PACKAGES — the Play-friendly way. -->
+        <package android:name="com.instagram.android" />
+        <package android:name="com.zhiliaoapp.musically" />
+        <package android:name="com.ss.android.ugc.trill" />
     </queries>
 
     <application

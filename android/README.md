@@ -17,8 +17,9 @@ doomscrolling. The billing contract with the backend is unchanged.
 | Component | File | Job |
 | --- | --- | --- |
 | Arming UI | `ui/MainActivity.kt` | Bind a `userId`, walk the permissions (Usage Access, overlay, Health Connect, battery exemption), manual "Sync my walk". |
-| The Spy (engine) | `spy/HeuristicSpyService.kt` | Foreground service: poll Usage Access for the foreground app, gate the gyroscope, run the billable meter, POST session start/heartbeat/end. |
+| The Spy (engine) | `spy/HeuristicSpyService.kt` | Foreground service: poll Usage Access for the foreground app, run the multi-signal engagement vote (network + gyro + audio) behind hard gates, run the billable meter, POST session start/heartbeat/end. |
 | Doomscroll algorithm | `spy/DoomscrollDetector.kt` | Pure logic: swipe-signature + rolling-window pattern match distinguishing scrolling from walking. Unit-testable. |
+| Network engagement | `spy/NetworkEngagementDetector.kt` | Primary signal: polls the target app's UID via `NetworkStatsManager` for content-pulling bursts. Motion-independent. |
 | Usage Access | `spy/UsageAccess.kt` | Permission check (AppOps) + foreground-package detection via `queryEvents`. |
 | Dead man's switch | `work/HeartbeatWorker.kt` | 12h `PeriodicWorkRequest` → `POST /api/device/heartbeat`; opportunistic expedited pings on launch/boot; caches the meter config from the response. |
 | Sweat equity | `work/HealthSyncWorker.kt` | Daily step aggregate + read walking from Health Connect, POST cumulative minutes to the pending redemption task. |
@@ -31,10 +32,9 @@ doomscrolling. The billing contract with the backend is unchanged.
 ```
 App Watcher (poll UsageStatsManager every 2s) → target pkg (IG / TikTok) foregrounded
   POST /api/sessions/start → sessionId (persisted in Prefs, survives restart)
-  Sensor Gate ON: register gyroscope (SENSOR_DELAY_GAME) → DoomscrollDetector
-  billing ticker (1s): count a second ONLY when screen is ON (isInteractive)
-      AND the detector CONFIRMS doomscrolling (≥2 swipe signatures in 20s)
-      AND the phone isn't dormant
+  Gates armed: gyroscope (SENSOR_DELAY_GAME) + network poll (5s, target UID)
+  billing ticker (1s): count a second ONLY when screen ON + not dormant AND
+      ≥2 of 3 engagement signals agree {network burst, gyro swipe rhythm, audio}
   every ~30s → POST /sessions/:id/heartbeat {activeSecondsDelta, scrolledSinceLast}
       response.taunts   → fire "Thank you for buying us [item]" notification
       response.capReached → freeze billing, keep session open (no force-HOME
@@ -43,20 +43,33 @@ target pkg leaves foreground (next 2s poll)
   Sensor Gate OFF (unregister gyro), flush final delta, POST /sessions/:id/end
 ```
 
-### What "interactive doomscrolling" means (the billing AND)
+### What "interactive doomscrolling" means (gates + engagement vote)
 
-The meter ticks only when **all three** hold — this is what maps to a user
-actually using the app:
+The meter ticks only when the **hard gates** hold AND the **engagement vote**
+carries.
 
-1. **Screen on** — `PowerManager.isInteractive`.
-2. **Target app foreground** — `UsageStatsManager`.
-3. **Touching/scrolling** — `DoomscrollDetector` (the gyro proxy).
+**Hard gates (all mandatory):**
 
-Condition 3 has no direct Play-compliant signal (touch on another app is
-unobservable without AccessibilityService), so the gyroscope swipe rhythm
-**stands in for touch**. Condition 1 is what closes the pocket-motion hole:
-a locked phone jostling in a pocket with IG last-foregrounded bills nothing,
-because `isInteractive` is false no matter what the gyro sees.
+1. **Screen on** — `PowerManager.isInteractive`. Closes the pocket-motion
+   hole: a locked phone jostling with IG last-foregrounded bills nothing.
+2. **Target app foreground** — `UsageStatsManager` (implied — the session
+   only exists while a target is up).
+3. **Not dormant** — the phone isn't propped/abandoned still on a table.
+
+**Engagement vote — need ≥2 of 3, so no lone signal can charge a card:**
+
+- **Network** (`NetworkEngagementDetector`) — the target app pulling content.
+  The primary, motion-independent signal; reels stream continuously. Uses
+  `NetworkStatsManager` on the app's UID (the `PACKAGE_USAGE_STATS` we already
+  hold; target packages are in `<queries>` for UID visibility).
+- **Gyro** (`DoomscrollDetector`) — the swipe-signature rhythm, the touch
+  proxy (touch on another app is unobservable without AccessibilityService).
+- **Audio** (`AudioManager.isMusicActive`) — media audio playing.
+
+Two independent signal families must agree: network catches the gentle-thumb
+scroll the gyro misses, the gyro catches the cached/low-traffic scroll the
+network misses, and audio is the tie-breaker. Neither the gyro alone nor a
+network blip alone bills.
 
 ### The doomscroll algorithm (`DoomscrollDetector`)
 

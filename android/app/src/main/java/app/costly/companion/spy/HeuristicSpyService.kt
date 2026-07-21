@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.media.AudioManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -60,16 +61,24 @@ import kotlinx.coroutines.withTimeoutOrNull
  * /sessions/start → /heartbeat → /end contract, the same MeterBus publishes,
  * the same overlay. Only the input signal changed.
  *
- * The billing definition of "interactive doomscrolling" is the AND of three
- * conditions, because that's what maps to a user actually using the app:
- *   1. the screen is ON        (PowerManager.isInteractive)
- *   2. a target app is foreground (UsageStatsManager)
- *   3. the user is touching/scrolling it (DoomscrollDetector)
- * Condition 3 has no direct Play-compliant signal — touch on another app is
- * unobservable without AccessibilityService — so the gyroscope swipe rhythm
- * is our PROXY for touch. Screen-on (1) is what kills the pocket-motion
- * false positive: a locked phone jostling with IG last-foregrounded bills
- * nothing, because condition 1 is false regardless of what the gyro sees.
+ * The billing definition of "interactive doomscrolling":
+ *
+ *   HARD GATES (all mandatory):
+ *     1. screen ON            (PowerManager.isInteractive) — kills pocket motion
+ *     2. target app foreground (UsageStatsManager) — the open session itself
+ *     3. phone NOT dormant     (gyro floor) — not propped/abandoned on a table
+ *
+ *   ENGAGEMENT VOTE (need ≥2 of 3, so no single signal can charge a card):
+ *     • NETWORK  — target app pulling content (NetworkEngagementDetector).
+ *                  The primary, motion-independent signal: reels stream.
+ *     • GYRO     — swipe-signature rhythm (DoomscrollDetector), the touch proxy.
+ *     • AUDIO    — media audio playing (AudioManager.isMusicActive).
+ *
+ * Two independent signal families must agree before the meter ticks — network
+ * catches the gentle-thumb scroll the gyro misses, the gyro catches the
+ * cached/low-traffic scroll the network misses, and neither alone bills.
+ * Touch on another app is unobservable without AccessibilityService, so this
+ * vote is the closest defensible stand-in.
  *
  * One capability lost with accessibility: we can no longer force-close the app
  * at the cap (no performGlobalAction). Instead, at cap we stop billing but
@@ -80,7 +89,9 @@ class HeuristicSpyService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var sensorManager: SensorManager
     private lateinit var powerManager: PowerManager
+    private lateinit var audioManager: AudioManager
     private val detector = DoomscrollDetector()
+    private lateinit var networkDetector: NetworkEngagementDetector
 
     private val mutex = Mutex()
     private var sessionId: String? = null
@@ -92,6 +103,7 @@ class HeuristicSpyService : Service() {
     private var capped = false
 
     private var sensorJob: Job? = null
+    private var networkJob: Job? = null
     private var billingJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -100,6 +112,8 @@ class HeuristicSpyService : Service() {
         super.onCreate()
         sensorManager = getSystemService(SensorManager::class.java)
         powerManager = getSystemService(PowerManager::class.java)
+        audioManager = getSystemService(AudioManager::class.java)
+        networkDetector = NetworkEngagementDetector(applicationContext)
         startAsForeground()
         scope.launch { appWatcherLoop() }
         Log.i(TAG, "Heuristic spy engine started. Targets: $TARGETS")
@@ -144,6 +158,8 @@ class HeuristicSpyService : Service() {
         msSinceFlush = 0
         capped = false
         detector.reset()
+        networkDetector.reset()
+        networkDetector.bind(pkg)
 
         publishMeterLocked(counting = false) // opened, but nothing billed until confirmed
         if (Settings.canDrawOverlays(this)) CostlyOverlayService.start(this)
@@ -152,14 +168,23 @@ class HeuristicSpyService : Service() {
         sensorJob = scope.launch {
             gyroFlow().buffer().collect { s -> detector.onSample(s.x, s.y, s.z, s.tMs) }
         }
+        // Network engagement poll (binder IO → IO dispatcher), coarser cadence.
+        networkJob = scope.launch(Dispatchers.IO) {
+            while (currentCoroutineContext().isActive) {
+                networkDetector.sample(SystemClock.elapsedRealtime())
+                delay(NET_POLL_MS)
+            }
+        }
         billingJob = scope.launch { billingLoop() }
-        Log.i(TAG, "Session $id opened for $pkg; sensor gate armed")
+        Log.i(TAG, "Session $id opened for $pkg; sensor + network gates armed")
     }
 
     private suspend fun endSessionLocked() {
         val id = sessionId ?: return
         billingJob?.cancel(); billingJob = null
         sensorJob?.cancel(); sensorJob = null // awaitClose unregisters the listener
+        networkJob?.cancel(); networkJob = null
+        networkDetector.reset()
 
         flushLocked(force = true)
         runCatching { Network.api.endSession(id) }
@@ -185,13 +210,20 @@ class HeuristicSpyService : Service() {
             mutex.withLock {
                 if (sessionId == null) return@withLock
                 val now = SystemClock.elapsedRealtime()
-                // Interactive doomscrolling = screen on AND confirmed swipe
-                // pattern AND not dormant. Screen-off can't bill, even if the
-                // gyro is spiking in a pocket — that's the pocket-motion fix.
-                val counting = !capped &&
-                    powerManager.isInteractive &&
-                    detector.isDoomscrolling(now) &&
-                    !detector.isDormant(now)
+
+                // Hard gates: screen on, not physically abandoned. (In-app is
+                // implied — the session only exists while a target is foreground.)
+                val gatesOpen = powerManager.isInteractive && !detector.isDormant(now)
+
+                // Engagement vote — need ≥2 of 3 so no lone signal charges a card.
+                val networkVote = networkDetector.isEngaged(now)
+                val gyroVote = detector.isDoomscrolling(now) // false when dormant
+                val audioVote = audioManager.isMusicActive
+                val votes = (if (networkVote) 1 else 0) +
+                    (if (gyroVote) 1 else 0) +
+                    (if (audioVote) 1 else 0)
+
+                val counting = !capped && gatesOpen && votes >= 2
                 if (counting) {
                     sessionActiveSeconds++
                     unsentActiveSeconds++
@@ -315,6 +347,7 @@ class HeuristicSpyService : Service() {
         private const val CHANNEL = "costly-spy"
         private const val NOTIF_ID = 7002
         private const val POLL_MS = 2_000L
+        private const val NET_POLL_MS = 5_000L
         private const val TICK_MS = 1_000L
         private const val FLUSH_MS = 30_000L
         private const val MAX_DELTA_SECONDS = 120

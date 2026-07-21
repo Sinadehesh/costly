@@ -1,7 +1,6 @@
 package app.costly.companion.work
 
 import android.content.Context
-import android.provider.Settings
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -17,6 +16,7 @@ import app.costly.companion.BuildConfig
 import app.costly.companion.Prefs
 import app.costly.companion.net.DeviceHeartbeatRequest
 import app.costly.companion.net.Network
+import app.costly.companion.spy.UsageAccess
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -50,8 +50,11 @@ class HeartbeatWorker(context: Context, params: WorkerParameters) :
         return try {
             val response = Network.api.deviceHeartbeat(
                 DeviceHeartbeatRequest(
+                    // DTO field name kept for backend compatibility; it now
+                    // reports whether monitoring (Usage Access) is granted,
+                    // since the AccessibilityService is gone.
                     userId = userId,
-                    accessibilityEnabled = isAccessibilityEnabled(applicationContext),
+                    accessibilityEnabled = UsageAccess.isGranted(applicationContext),
                     appVersion = BuildConfig.VERSION_NAME,
                 ),
             )
@@ -103,14 +106,6 @@ class HeartbeatWorker(context: Context, params: WorkerParameters) :
                 ExistingWorkPolicy.REPLACE,
                 request,
             )
-        }
-
-        fun isAccessibilityEnabled(context: Context): Boolean {
-            val enabled = Settings.Secure.getString(
-                context.contentResolver,
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-            ) ?: return false
-            return enabled.contains(context.packageName)
         }
     }
 }

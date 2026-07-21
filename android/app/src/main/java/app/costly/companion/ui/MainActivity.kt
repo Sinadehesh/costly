@@ -45,6 +45,8 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import app.costly.companion.Prefs
 import app.costly.companion.overlay.OverlayPermission
+import app.costly.companion.spy.HeuristicSpyService
+import app.costly.companion.spy.UsageAccess
 import app.costly.companion.ui.theme.Accent
 import app.costly.companion.ui.theme.Bg
 import app.costly.companion.ui.theme.Burn
@@ -74,13 +76,18 @@ fun ArmingScreen() {
     val context = LocalContext.current
     var userId by remember { mutableStateOf(Prefs.userId(context) ?: "") }
     var armed by remember { mutableStateOf(Prefs.userId(context) != null) }
-    var accessibilityOn by remember {
-        mutableStateOf(HeartbeatWorker.isAccessibilityEnabled(context))
-    }
+    var monitoringOn by remember { mutableStateOf(UsageAccess.isGranted(context)) }
     var healthGranted by remember { mutableStateOf(false) }
     var syncRequested by remember { mutableStateOf(false) }
     var overlayOn by remember { mutableStateOf(OverlayPermission.canDraw(context)) }
     var showRestrictedWarning by remember { mutableStateOf(false) }
+
+    // Once armed AND Usage Access is granted, the heuristic engine can run.
+    fun startEngineIfReady() {
+        if (Prefs.userId(context) != null && UsageAccess.isGranted(context)) {
+            HeuristicSpyService.start(context)
+        }
+    }
 
     val healthPermissionLauncher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract(),
@@ -94,6 +101,14 @@ fun ArmingScreen() {
     val overlayLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { overlayOn = OverlayPermission.canDraw(context) }
+
+    // Returning from Usage Access settings: re-check and arm the engine.
+    val usageAccessLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        monitoringOn = UsageAccess.isGranted(context)
+        startEngineIfReady()
+    }
 
     if (showRestrictedWarning) {
         AlertDialog(
@@ -140,15 +155,15 @@ fun ArmingScreen() {
         )
 
         Text(
-            if (armed && accessibilityOn) "SYSTEM ARMED" else "SYSTEM UNARMED",
-            color = if (armed && accessibilityOn) Accent else Burn,
+            if (armed && monitoringOn) "SYSTEM ARMED" else "SYSTEM UNARMED",
+            color = if (armed && monitoringOn) Accent else Burn,
             fontFamily = FontFamily.Monospace,
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
         )
         Text(
-            if (armed && accessibilityOn)
-                "Watching for user $userId. Every vice minute is billed. Every 12 hours we phone home. You know the terms — you wrote them."
+            if (armed && monitoringOn)
+                "Watching for user $userId. Every confirmed doomscroll is billed. Every 12 hours we phone home. You know the terms — you wrote them."
             else
                 "Nothing is being metered. Nothing is being proven. Your contract can still breach you for this. Finish the setup.",
             color = Muted,
@@ -185,6 +200,7 @@ fun ArmingScreen() {
                         HeartbeatWorker.schedule(context)
                         HealthSyncWorker.schedule(context)
                         HeartbeatWorker.pingNow(context) // first proof of life arms the switch
+                        startEngineIfReady() // launches the spy if Usage Access is already on
                         if (Build.VERSION.SDK_INT >= 33) {
                             notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                         }
@@ -196,28 +212,28 @@ fun ArmingScreen() {
             }
         }
 
-        // ── Accessibility ─────────────────────────────────────────────────
+        // ── Usage Access (the eyes) ───────────────────────────────────────
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(16.dp),
         ) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "2 · The eyes" + if (accessibilityOn) " — granted" else "",
-                    color = if (accessibilityOn) Accent else MaterialTheme.colorScheme.onSurface,
+                    "2 · The eyes" + if (monitoringOn) " — granted" else "",
+                    color = if (monitoringOn) Accent else MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    "Accessibility lets us see which app is in the foreground and whether " +
-                        "you're scrolling. We can't bill what we can't see. Revoking this " +
-                        "mid-lock-in counts as desertion.",
+                    "Usage Access lets us see which app is in the foreground — and the " +
+                        "gyroscope tells us whether you're actually doomscrolling. We can't " +
+                        "bill what we can't see. Revoking this mid-lock-in counts as desertion.",
                     color = Muted, fontSize = 12.sp,
                 )
                 Button(
-                    onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
+                    onClick = { usageAccessLauncher.launch(UsageAccess.settingsIntent()) },
                     colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Open accessibility settings") }
+                ) { Text("Open usage-access settings") }
             }
         }
 

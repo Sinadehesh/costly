@@ -19,9 +19,10 @@ your self-chosen deletion fee.
 Mobile-first **Next.js web app** + Android companion service.
 
 - Next.js (App Router) + Tailwind · Prisma + PostgreSQL · Stripe
-  pre-auth holds & captures · Android AccessibilityService for scroll
-  detection · Health Connect/HealthKit for walking verification ·
-  Vercel Cron (or any plain cron) for the expiry sweep.
+  pre-auth holds & captures · Android heuristic spy engine
+  (UsageStatsManager + gyroscope, **no AccessibilityService** — Play
+  compliant) for scroll detection · Health Connect for walking
+  verification · Vercel Cron (or any plain cron) for the expiry sweep.
 - **20/80 split**: session ends → 20% captured permanently, 80% held in
   purgatory for 24h; released on walking-goal success, captured on
   expiry. Two PaymentIntents per session (Stripe can't partial-capture
@@ -36,8 +37,9 @@ Mobile-first **Next.js web app** + Android companion service.
   local-first Android plan, kept as the parking lot (villain voice &
   ethics specs there still inform v2 copy).
 - `android/` — the **native Kotlin companion app** (the real one):
-  Compose arming UI, `CostlyAccessibilityService` spy, `HeartbeatWorker`
-  dead man's switch, `HealthSyncWorker`. See `android/README.md`.
+  Compose arming UI, `HeuristicSpyService` (UsageStats + gyroscope, no
+  accessibility), `HeartbeatWorker` dead man's switch, `HealthSyncWorker`.
+  See `android/README.md`.
 - `mobile-native/` — superseded v1 Expo scaffold, kept only for the
   design tokens; the companion app now lives in `android/`.
 - `CLAUDE.md` — v1 master prompt (superseded where it conflicts with
@@ -55,6 +57,6 @@ Mobile-first **Next.js web app** + Android companion service.
 | "Hostile Arcade" redesign: terminal aesthetic, cat mascot widget, optional wishlist | ✅ (dashboard + onboarding; landing still on v1 skin) |
 | Android companion (`android/`): arming UI, spy service, heartbeat + health-sync workers | ✅ scaffolded |
 | Android live meter overlay (Compose bubble over the vice app, per-second ticker) | ✅ scaffolded |
-| Android companion service (AccessibilityService + heartbeat worker) | ⬜ |
+| Heuristic spy engine (UsageStats + gyroscope, no AccessibilityService — Play compliant) | ✅ scaffolded, needs on-device threshold tuning |
 | Companion app → health-minutes push wiring | ⬜ |
 | Breach warning email + reinstall-to-cure grace flow | ⬜ recommended |

@@ -3,6 +3,8 @@ package app.costly.companion
 import android.app.Application
 import androidx.work.Configuration
 import app.costly.companion.notify.Notifier
+import app.costly.companion.spy.HeuristicSpyService
+import app.costly.companion.spy.UsageAccess
 import app.costly.companion.work.HealthSyncWorker
 import app.costly.companion.work.HeartbeatWorker
 
@@ -19,6 +21,12 @@ class CostlyApp : Application(), Configuration.Provider {
         HeartbeatWorker.schedule(this)
         HealthSyncWorker.schedule(this)
         // Every launch is proof of life — don't wait for the 12h window.
-        if (Prefs.userId(this) != null) HeartbeatWorker.pingNow(this)
+        if (Prefs.userId(this) != null) {
+            HeartbeatWorker.pingNow(this)
+            // Re-arm the spy if fully set up. When the process started in the
+            // foreground (user opened the app) this is allowed; a background
+            // process-start refusal is swallowed by start().
+            if (UsageAccess.isGranted(this)) HeuristicSpyService.start(this)
+        }
     }
 }

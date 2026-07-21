@@ -1,20 +1,27 @@
 # Costly — Android companion
 
-Kotlin · Jetpack Compose · WorkManager · AccessibilityService · Health
-Connect · Retrofit/OkHttp. minSdk 26, targetSdk 35.
+Kotlin · Jetpack Compose · WorkManager · UsageStatsManager + Gyroscope ·
+Health Connect · Retrofit/OkHttp. minSdk 26, targetSdk 35.
 
 This app is the spy and the dead man's switch. It has no data of its own
 beyond a `userId` (pasted from the web dashboard) — everything it learns
 it POSTs to the live Next.js API.
 
+**No AccessibilityService.** For Google Play compliance the foreground
+detection uses the **Heuristic Spy Engine**: `UsageStatsManager` for which
+app is open + the **gyroscope** to detect the physical motion of
+doomscrolling. The billing contract with the backend is unchanged.
+
 ## What each piece does
 
 | Component | File | Job |
 | --- | --- | --- |
-| Arming UI | `ui/MainActivity.kt` | Bind a `userId`, walk the 3 permissions (Accessibility, Health Connect, battery exemption), manual "Sync my walk". |
-| The Spy | `spy/CostlyAccessibilityService.kt` | Detect foregrounded vice apps, run the idle-aware billable timer, POST session start/heartbeat/end. |
+| Arming UI | `ui/MainActivity.kt` | Bind a `userId`, walk the permissions (Usage Access, overlay, Health Connect, battery exemption), manual "Sync my walk". |
+| The Spy (engine) | `spy/HeuristicSpyService.kt` | Foreground service: poll Usage Access for the foreground app, gate the gyroscope, run the billable meter, POST session start/heartbeat/end. |
+| Doomscroll algorithm | `spy/DoomscrollDetector.kt` | Pure logic: swipe-signature + rolling-window pattern match distinguishing scrolling from walking. Unit-testable. |
+| Usage Access | `spy/UsageAccess.kt` | Permission check (AppOps) + foreground-package detection via `queryEvents`. |
 | Dead man's switch | `work/HeartbeatWorker.kt` | 12h `PeriodicWorkRequest` → `POST /api/device/heartbeat`; opportunistic expedited pings on launch/boot; caches the meter config from the response. |
-| Sweat equity | `work/HealthSyncWorker.kt` | Read walking from Health Connect, POST cumulative minutes to the pending redemption task. |
+| Sweat equity | `work/HealthSyncWorker.kt` | Daily step aggregate + read walking from Health Connect, POST cumulative minutes to the pending redemption task. |
 | Live meter overlay | `overlay/CostlyOverlayService.kt`, `overlay/MeterOverlay.kt` | Foreground service hosting a Compose bubble in a `WindowManager` window; per-second punch-clock ticker. |
 | Meter bus | `spy/MeterState.kt` | In-process `StateFlow` the spy publishes and the overlay observes — one source of truth, no double-counting. |
 | Wiring | `CostlyApp.kt`, `BootReceiver.kt`, `net/`, `notify/`, `Prefs.kt` | App init, reboot re-arm, Retrofit client + DTOs, taunt notifications, local state + cached meter config. |
@@ -22,21 +29,39 @@ it POSTs to the live Next.js API.
 ## How the spy bills (session lifecycle)
 
 ```
-TYPE_WINDOW_STATE_CHANGED → blocked pkg foregrounded
-  POST /api/sessions/start → sessionId (persisted in Prefs, survives rebind)
-  ticker: +5s billable time, but ONLY while last scroll < 60s ago (idle pause)
-  TYPE_VIEW_SCROLLED resets the idle clock
+App Watcher (poll UsageStatsManager every 2s) → target pkg (IG / TikTok) foregrounded
+  POST /api/sessions/start → sessionId (persisted in Prefs, survives restart)
+  Sensor Gate ON: register gyroscope (SENSOR_DELAY_GAME) → DoomscrollDetector
+  billing ticker (1s): count a second ONLY when the detector CONFIRMS
+      doomscrolling (≥2 swipe signatures in 20s) and the phone isn't dormant
   every ~30s → POST /sessions/:id/heartbeat {activeSecondsDelta, scrolledSinceLast}
       response.taunts   → fire "Thank you for buying us [item]" notification
-      response.capReached → force HOME + end session
-TYPE_WINDOW_STATE_CHANGED → non-blocked pkg (3s debounce absorbs keyboards/dialogs)
-  flush final delta, POST /sessions/:id/end  ← the Stripe moment
+      response.capReached → freeze billing, keep session open (no force-HOME
+                            without accessibility)
+target pkg leaves foreground (next 2s poll)
+  Sensor Gate OFF (unregister gyro), flush final delta, POST /sessions/:id/end
 ```
 
+### The doomscroll algorithm (`DoomscrollDetector`)
+
+- **Swipe signature**: a sharp spike in angular velocity (primarily the
+  X-axis) followed by 2–15s of relative stability (watching the reel).
+- **Pattern match**: ≥2 swipe signatures inside a 20s rolling window ⇒
+  confirmed doomscrolling → the meter ticks.
+- **Walking rejection**: sustained mid-band motion never settles into the
+  calm tail, so the stability timer keeps resetting and no swipe registers.
+- **Dormancy**: angular velocity below a near-zero floor for 30s+ (phone on
+  a table) pauses the meter.
+
+> ⚠️ Billing real money on an inferred signal: the thresholds in
+> `DoomscrollDetector` are first-pass estimates and **need on-device tuning
+> before live cards** — a false positive charges a user for a wobble. The
+> server-side per-session cap bounds the worst case.
+
 Session state is guarded by a `Mutex` and the server `sessionId` is
-persisted, so a system kill/rebind of the service resumes rather than
-orphaning an ACTIVE session (the backend also returns the existing ACTIVE
-session from `/start`).
+persisted, so a process kill/restart resumes rather than orphaning an
+ACTIVE session (the backend also returns the existing ACTIVE session from
+`/start`).
 
 ## Guaranteed-execution reality (dead man's switch)
 

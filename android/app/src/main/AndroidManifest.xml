@@ -14,11 +14,22 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- The live meter overlay. Android 15+ requires a persistent overlay to be
-         backed by a foreground service, hence the SPECIAL_USE type. -->
+    <!-- The live meter overlay + the heuristic spy engine both run as
+         foreground services. Android 15+ requires a persistent overlay to be
+         backed by one, hence the SPECIAL_USE type. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- Heuristic spy engine (Play-compliant, no AccessibilityService):
+         Usage Access detects the foreground app, the gyroscope detects the
+         physical motion of doomscrolling. PACKAGE_USAGE_STATS is granted by
+         the user in Settings, not at install — the manifest entry only
+         declares intent. -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
 
     <!-- Health Connect: read walking + steps for the last 24h. -->
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
@@ -71,20 +82,17 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- THE SPY. Binds with the accessibility permission; the system owns
-             its lifecycle and will rebind it, so it must not assume its process
-             stayed alive. -->
+        <!-- THE HEURISTIC SPY ENGINE. A foreground service (no accessibility):
+             polls Usage Access for the foreground app and reads the gyroscope
+             to detect doomscrolling. Started from the arming UI once Usage
+             Access is granted. -->
         <service
-            android:name=".spy.CostlyAccessibilityService"
+            android:name=".spy.HeuristicSpyService"
             android:exported="false"
-            android:label="@string/accessibility_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Detects when a blocked app is open and whether the user is actively doomscrolling, to run the penalty meter the user contracted for." />
         </service>
 
         <!-- The live meter overlay window host. -->

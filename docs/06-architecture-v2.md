@@ -9,8 +9,10 @@
 - **Frontend**: Next.js (App Router), React, Tailwind CSS
 - **Backend/DB**: Next.js API routes, Prisma ORM, PostgreSQL
 - **Payments**: Stripe — pre-authorization holds & captures
-- **Device**: Android AccessibilityService (scroll detection),
-  Health Connect / HealthKit (verified walking minutes)
+- **Device**: Android heuristic spy engine — UsageStatsManager
+  (foreground app) + gyroscope (doomscroll motion), **no
+  AccessibilityService** for Play compliance — plus Health Connect
+  (verified walking minutes)
 - **Scheduling**: Vercel Cron (or any plain cron) hitting
   `/api/jobs/expire-holds` — no automation platform
 
@@ -75,10 +77,15 @@
   nothing server-side can poll it — so the companion app must push
   walking minutes to `/api/redemptions/:id/sync`. HealthKit likewise
   has no server API; iOS needs on-device sync when it lands.
-- **AccessibilityService for non-accessibility purposes** is restricted
-  by Play Store policy; distribution may need to be sideload/APK first,
-  Play review argued later (or a UsageStats fallback with coarser idle
-  detection).
+- **Foreground detection without AccessibilityService** (done). To stay
+  Play-compliant the app uses a heuristic engine — `UsageStatsManager`
+  for the foreground app + gyroscope for doomscroll motion — instead of
+  an AccessibilityService (which Play restricts to accessibility uses).
+  Trade-off: Usage Access carries ~1–2s latency, and the gyroscope
+  doomscroll inference needs on-device threshold tuning before live
+  cards, since a false positive bills a user for a wobble (bounded by
+  the per-session cap). `specialUse` foreground services still draw
+  Play review.
 - **Dead-man's-switch false positives.** A dead battery, a week
   offline, or Android's Doze killing WorkManager looks identical to
   deletion from the server's side. Mitigations built in: the app pings

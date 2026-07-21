@@ -48,8 +48,8 @@ object Prefs {
 
     /**
      * The active server session id survives process death — if the system
-     * kills and rebinds the accessibility service mid-session, we resume
-     * instead of orphaning an ACTIVE session on the backend.
+     * kills and restarts the spy service mid-session, we resume instead of
+     * orphaning an ACTIVE session on the backend.
      */
     fun activeSessionId(context: Context): String? =
         sp(context).getString(KEY_ACTIVE_SESSION, null)

@@ -32,8 +32,9 @@ doomscrolling. The billing contract with the backend is unchanged.
 App Watcher (poll UsageStatsManager every 2s) → target pkg (IG / TikTok) foregrounded
   POST /api/sessions/start → sessionId (persisted in Prefs, survives restart)
   Sensor Gate ON: register gyroscope (SENSOR_DELAY_GAME) → DoomscrollDetector
-  billing ticker (1s): count a second ONLY when the detector CONFIRMS
-      doomscrolling (≥2 swipe signatures in 20s) and the phone isn't dormant
+  billing ticker (1s): count a second ONLY when screen is ON (isInteractive)
+      AND the detector CONFIRMS doomscrolling (≥2 swipe signatures in 20s)
+      AND the phone isn't dormant
   every ~30s → POST /sessions/:id/heartbeat {activeSecondsDelta, scrolledSinceLast}
       response.taunts   → fire "Thank you for buying us [item]" notification
       response.capReached → freeze billing, keep session open (no force-HOME
@@ -42,10 +43,28 @@ target pkg leaves foreground (next 2s poll)
   Sensor Gate OFF (unregister gyro), flush final delta, POST /sessions/:id/end
 ```
 
+### What "interactive doomscrolling" means (the billing AND)
+
+The meter ticks only when **all three** hold — this is what maps to a user
+actually using the app:
+
+1. **Screen on** — `PowerManager.isInteractive`.
+2. **Target app foreground** — `UsageStatsManager`.
+3. **Touching/scrolling** — `DoomscrollDetector` (the gyro proxy).
+
+Condition 3 has no direct Play-compliant signal (touch on another app is
+unobservable without AccessibilityService), so the gyroscope swipe rhythm
+**stands in for touch**. Condition 1 is what closes the pocket-motion hole:
+a locked phone jostling in a pocket with IG last-foregrounded bills nothing,
+because `isInteractive` is false no matter what the gyro sees.
+
 ### The doomscroll algorithm (`DoomscrollDetector`)
 
 - **Swipe signature**: a sharp spike in angular velocity (primarily the
   X-axis) followed by 2–15s of relative stability (watching the reel).
+  Touch-induced device rotation is real — swiping a touchscreen torques the
+  phone in-hand — so with screen-on + in-app gating this is a strong touch
+  proxy, not vibration guesswork.
 - **Pattern match**: ≥2 swipe signatures inside a 20s rolling window ⇒
   confirmed doomscrolling → the meter ticks.
 - **Walking rejection**: sustained mid-band motion never settles into the
@@ -53,10 +72,11 @@ target pkg leaves foreground (next 2s poll)
 - **Dormancy**: angular velocity below a near-zero floor for 30s+ (phone on
   a table) pauses the meter.
 
-> ⚠️ Billing real money on an inferred signal: the thresholds in
-> `DoomscrollDetector` are first-pass estimates and **need on-device tuning
-> before live cards** — a false positive charges a user for a wobble. The
-> server-side per-session cap bounds the worst case.
+> ⚠️ The `DoomscrollDetector` thresholds are still first-pass estimates and
+> want on-device tuning before live cards. With the screen-on gate in place,
+> the residual risk (screen genuinely on, in-app, ambient vibration but no
+> touch — e.g. a car mount) is narrow and bounded by the server per-session
+> cap.
 
 Session state is guarded by a `Mutex` and the server `sessionId` is
 persisted, so a process kill/restart resumes rather than orphaning an

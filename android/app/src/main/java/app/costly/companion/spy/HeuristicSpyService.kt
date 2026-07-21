@@ -13,6 +13,7 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
@@ -59,6 +60,17 @@ import kotlinx.coroutines.withTimeoutOrNull
  * /sessions/start → /heartbeat → /end contract, the same MeterBus publishes,
  * the same overlay. Only the input signal changed.
  *
+ * The billing definition of "interactive doomscrolling" is the AND of three
+ * conditions, because that's what maps to a user actually using the app:
+ *   1. the screen is ON        (PowerManager.isInteractive)
+ *   2. a target app is foreground (UsageStatsManager)
+ *   3. the user is touching/scrolling it (DoomscrollDetector)
+ * Condition 3 has no direct Play-compliant signal — touch on another app is
+ * unobservable without AccessibilityService — so the gyroscope swipe rhythm
+ * is our PROXY for touch. Screen-on (1) is what kills the pocket-motion
+ * false positive: a locked phone jostling with IG last-foregrounded bills
+ * nothing, because condition 1 is false regardless of what the gyro sees.
+ *
  * One capability lost with accessibility: we can no longer force-close the app
  * at the cap (no performGlobalAction). Instead, at cap we stop billing but
  * keep the session open so re-entry can't start a fresh, uncapped session.
@@ -67,6 +79,7 @@ class HeuristicSpyService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var sensorManager: SensorManager
+    private lateinit var powerManager: PowerManager
     private val detector = DoomscrollDetector()
 
     private val mutex = Mutex()
@@ -86,6 +99,7 @@ class HeuristicSpyService : Service() {
     override fun onCreate() {
         super.onCreate()
         sensorManager = getSystemService(SensorManager::class.java)
+        powerManager = getSystemService(PowerManager::class.java)
         startAsForeground()
         scope.launch { appWatcherLoop() }
         Log.i(TAG, "Heuristic spy engine started. Targets: $TARGETS")
@@ -171,7 +185,11 @@ class HeuristicSpyService : Service() {
             mutex.withLock {
                 if (sessionId == null) return@withLock
                 val now = SystemClock.elapsedRealtime()
+                // Interactive doomscrolling = screen on AND confirmed swipe
+                // pattern AND not dormant. Screen-off can't bill, even if the
+                // gyro is spiking in a pocket — that's the pocket-motion fix.
                 val counting = !capped &&
+                    powerManager.isInteractive &&
                     detector.isDoomscrolling(now) &&
                     !detector.isDormant(now)
                 if (counting) {

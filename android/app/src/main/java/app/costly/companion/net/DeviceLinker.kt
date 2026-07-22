@@ -18,6 +18,7 @@ object DeviceLinker {
         Prefs.setLink(context, deviceSecret = response.deviceSecret, userId = response.userId)
         Network.deviceSecret = response.deviceSecret
         Log.i(TAG, "Device linked for user ${response.userId}")
+        Unit // pin the block's type to Result<Unit> (Log.i returns Int)
     }.onFailure { Log.w(TAG, "device link failed", it) }
 
     private const val TAG = "CostlyLink"

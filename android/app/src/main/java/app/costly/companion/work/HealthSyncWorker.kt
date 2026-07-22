@@ -28,6 +28,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
 /**
@@ -83,6 +84,7 @@ class HealthSyncWorker(context: Context, params: WorkerParameters) :
                 StepsSyncRequest(
                     steps = totalSteps.toInt(),
                     day = LocalDate.now(zone).toString(), // YYYY-MM-DD, same zone as fetch
+                    timezone = TimeZone.getDefault().id, // IANA id for the laziness cron
                 ),
             )
         }.onFailure { Log.w(TAG, "step sync failed — retried next run", it) }

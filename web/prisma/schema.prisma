@@ -93,10 +93,15 @@ model User {
   deviceLinkOtpExpiresAt DateTime?
 
   // ── Daily laziness penalty (Phase 3) ────────────────────────────────────
-  // Below dailyStepGoal for a completed day → the nightly cron charges
+  // Below dailyStepGoal for a completed day → the cron charges
   // lazinessPenaltyCents off-session. Defaults so existing users are covered.
   dailyStepGoal        Int @default(8000)
   lazinessPenaltyCents Int @default(200) // €2
+
+  // IANA tz id (e.g. "Europe/Berlin"), refreshed on every step sync. The cron
+  // uses it to only charge for a local day that has safely concluded (+buffer),
+  // so no one is billed before their day is actually over.
+  timezone String @default("UTC")
 
   sessions        Session[]
   anchorItems     AnchorItem[]

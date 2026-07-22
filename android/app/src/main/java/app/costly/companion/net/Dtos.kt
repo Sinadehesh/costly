@@ -114,6 +114,7 @@ data class WalkingSyncResponse(
 data class StepsSyncRequest(
     val steps: Int,
     val day: String, // YYYY-MM-DD, device-local calendar day
+    val timezone: String, // IANA id, e.g. "Europe/Berlin"
     val source: String = "health_connect",
 )
 

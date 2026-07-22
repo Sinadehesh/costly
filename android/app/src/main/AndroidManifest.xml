@@ -16,16 +16,30 @@
 
     <!-- The live meter overlay + the heuristic spy engine both run as
          foreground services. Android 15+ requires a persistent overlay to be
-         backed by one, hence the SPECIAL_USE type. -->
+         backed by one, hence the SPECIAL_USE type.
+         PLAY REVIEW: FOREGROUND_SERVICE_SPECIAL_USE requires a declaration in
+         the Play Console (App content → Foreground service permissions). The
+         justification for each service is its PROPERTY_SPECIAL_USE_FGS_SUBTYPE
+         value below; neither service does background work that fits a standard
+         FGS type (dataSync/health/etc.), so specialUse is the correct choice. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <!-- Heuristic spy engine (Play-compliant, no AccessibilityService):
          Usage Access detects the foreground app, the gyroscope detects the
-         physical motion of doomscrolling. PACKAGE_USAGE_STATS is granted by
-         the user in Settings, not at install — the manifest entry only
-         declares intent. -->
+         physical motion of doomscrolling. PACKAGE_USAGE_STATS is an appops
+         permission GRANTED BY THE USER in Settings (not at install), so the
+         manifest entry only declares intent — hence tools:ignore, which
+         silences lint's "signature/privileged permission" warning.
+         PLAY REVIEW: Usage Access / "Sensitive app usage data" must be
+         declared and justified in the Play Console. Justification: Costly is a
+         self-monitoring anti-doomscrolling tool; the user explicitly grants
+         Usage Access so the app can see WHICH of the user's own blocked apps is
+         foregrounded in order to run the penalty meter they contracted for. No
+         usage data leaves the device except the derived, per-session billable
+         seconds the user agreed to. A live privacy policy is linked in the
+         listing (see web /privacy). -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
@@ -91,7 +105,11 @@
         <!-- THE HEURISTIC SPY ENGINE. A foreground service (no accessibility):
              polls Usage Access for the foreground app and reads the gyroscope
              to detect doomscrolling. Started from the arming UI once Usage
-             Access is granted. -->
+             Access is granted.
+             PLAY REVIEW: specialUse is required because this is a continuous,
+             user-initiated monitoring service that maps to none of the standard
+             FGS types. The PROPERTY_SPECIAL_USE_FGS_SUBTYPE below is the exact
+             justification string to paste into the Play Console declaration. -->
         <service
             android:name=".spy.HeuristicSpyService"
             android:exported="false"
@@ -101,7 +119,10 @@
                 android:value="Detects when a blocked app is open and whether the user is actively doomscrolling, to run the penalty meter the user contracted for." />
         </service>
 
-        <!-- The live meter overlay window host. -->
+        <!-- The live meter overlay window host.
+             PLAY REVIEW: second specialUse FGS; its subtype string below is the
+             Play Console justification. Backs the SYSTEM_ALERT_WINDOW overlay,
+             which Android 15+ requires a foreground service to keep alive. -->
         <service
             android:name=".overlay.CostlyOverlayService"
             android:exported="false"

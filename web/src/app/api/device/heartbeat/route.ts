@@ -6,8 +6,9 @@ import { requireDevice } from '@/lib/deviceAuth';
 const bodySchema = z.object({
   // Self-reported diagnostics — useful for support disputes ("the app was
   // installed, Android just killed the service"). Informational only; the
-  // breach decision rests solely on ping recency.
-  accessibilityEnabled: z.boolean().optional(),
+  // breach decision rests solely on ping recency. monitoringEnabled reports
+  // whether the device holds Usage Access.
+  monitoringEnabled: z.boolean().optional(),
   appVersion: z.string().optional(),
 });
 

@@ -62,7 +62,7 @@ data class EndSessionResponse(
 
 // userId removed — derived server-side from x-device-secret (Phase 1).
 data class DeviceHeartbeatRequest(
-    val accessibilityEnabled: Boolean? = null,
+    val monitoringEnabled: Boolean? = null, // whether Usage Access is granted
     val appVersion: String? = null,
 )
 

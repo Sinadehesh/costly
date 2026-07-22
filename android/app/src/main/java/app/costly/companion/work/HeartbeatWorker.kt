@@ -54,11 +54,9 @@ class HeartbeatWorker(context: Context, params: WorkerParameters) :
         return try {
             val response = Network.api.deviceHeartbeat(
                 DeviceHeartbeatRequest(
-                    // DTO field name kept for backend compatibility; it now
-                    // reports whether monitoring (Usage Access) is granted,
-                    // since the AccessibilityService is gone. userId is derived
-                    // server-side from x-device-secret (Phase 1).
-                    accessibilityEnabled = UsageAccess.isGranted(applicationContext),
+                    // Diagnostics only; userId is derived server-side from
+                    // x-device-secret (Phase 1).
+                    monitoringEnabled = UsageAccess.isGranted(applicationContext),
                     appVersion = BuildConfig.VERSION_NAME,
                 ),
             )

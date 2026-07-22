@@ -12,7 +12,6 @@ object Prefs {
     private const val FILE = "costly"
     private const val KEY_USER_ID = "userId"
     private const val KEY_DEVICE_SECRET = "deviceSecret"
-    private const val KEY_BLOCKED = "blockedPackages"
     private const val KEY_ACTIVE_SESSION = "activeSessionId"
     private const val KEY_RATE = "penaltyRateCentsPerMin"
     private const val KEY_ANCHORS = "anchorsJson"
@@ -28,14 +27,6 @@ object Prefs {
     // Memoized parse — the spy publishes meter state every 5s.
     private var anchorsCacheJson: String? = null
     private var anchorsCache: List<AnchorLite> = emptyList()
-
-    val DEFAULT_BLOCKED: Set<String> = setOf(
-        "com.instagram.android",
-        "com.zhiliaoapp.musically", // TikTok
-        "com.ss.android.ugc.trill", // TikTok (Asia builds)
-        "com.twitter.android",
-        "com.reddit.frontpage",
-    )
 
     private fun sp(context: Context): SharedPreferences =
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -60,9 +51,6 @@ object Prefs {
             .putString(KEY_DEVICE_SECRET, deviceSecret)
             .putString(KEY_USER_ID, userId.trim())
             .apply()
-
-    fun blockedPackages(context: Context): Set<String> =
-        sp(context).getStringSet(KEY_BLOCKED, null) ?: DEFAULT_BLOCKED
 
     /**
      * The active server session id survives process death — if the system

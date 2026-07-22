@@ -3,6 +3,31 @@
 Kotlin · Jetpack Compose · WorkManager · UsageStatsManager + Gyroscope ·
 Health Connect · Retrofit/OkHttp. minSdk 26, targetSdk 35.
 
+## Toolchain requirements (read first — this bites at "configure")
+
+- **AGP 8.7.3** → requires **Gradle 8.9+** (this project pins **8.11.1** in
+  `gradle/wrapper/gradle-wrapper.properties`) and **Android Studio Ladybug
+  (2024.2.1) or newer**. An older Studio rejects the plugin at sync with an
+  "incompatible Android Gradle plugin" error.
+- **JDK 17** (AGP 8.x requirement).
+- **compileSdk / targetSdk 35** → install the **Android 15 (API 35)** SDK
+  platform in the SDK Manager, or configuration fails.
+
+### Generate the Gradle wrapper jar
+
+The wrapper `.properties` is committed, but the binary `gradle-wrapper.jar`
+must be generated once (it can't be created in the CI sandbox that produced
+this repo). Do ONE of:
+
+```bash
+# from android/ , with a local Gradle installed:
+gradle wrapper --gradle-version 8.11.1
+```
+
+…or simply **open `android/` in Android Studio** — on first sync it generates
+the missing wrapper jar automatically. After that, `./gradlew :app:assembleDebug`
+works.
+
 This app is the spy and the dead man's switch. It has no data of its own
 beyond a `userId` (pasted from the web dashboard) — everything it learns
 it POSTs to the live Next.js API.

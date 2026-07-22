@@ -63,8 +63,13 @@ dependencies {
     // Background work — the dead man's switch and health sync
     implementation("androidx.work:work-runtime-ktx:2.10.0")
 
-    // Health Connect — on-device walking data (no server can poll this)
-    implementation("androidx.health.connect:connect-client:1.1.0-rc02")
+    // Health Connect — on-device walking data (no server can poll this).
+    // Pinned to alpha07: connect-client 1.1.0-rc02 requires compileSdk 36 +
+    // AGP 8.9.1, which the rest of this toolchain (AGP 8.7.3 / compileSdk 35)
+    // isn't on. alpha07 predates that requirement and exposes the same APIs we
+    // use (StepsRecord, ExerciseSessionRecord, aggregate, permissions). To move
+    // back to rc/stable later, bump AGP → 8.9.1+ and compileSdk → 36 together.
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
 
     // Network
     implementation("com.squareup.retrofit2:retrofit:2.11.0")

@@ -119,4 +119,15 @@ object Prefs {
             .putBoolean(KEY_PAYMENT_FAILED, false)
             .remove(KEY_SETTLE_UP_URL)
             .apply()
+
+    // Let the UI react the instant a background worker clears the lock.
+    fun registerChangeListener(
+        context: Context,
+        listener: SharedPreferences.OnSharedPreferenceChangeListener,
+    ) = sp(context).registerOnSharedPreferenceChangeListener(listener)
+
+    fun unregisterChangeListener(
+        context: Context,
+        listener: SharedPreferences.OnSharedPreferenceChangeListener,
+    ) = sp(context).unregisterOnSharedPreferenceChangeListener(listener)
 }

@@ -13,7 +13,8 @@ import { stripe } from '@/lib/stripe';
  * Events to enable in the Stripe dashboard:
  *   setup_intent.succeeded, payment_intent.succeeded,
  *   payment_intent.canceled, payment_intent.payment_failed,
- *   invoice.payment_failed, invoice.payment_succeeded
+ *   invoice.payment_failed, invoice.payment_succeeded,
+ *   checkout.session.completed
  */
 
 /** Lock an account into the "Settle Up" state. */
@@ -135,6 +136,18 @@ export async function POST(req: Request) {
       await markPaymentRecovered({
         customerId: typeof invoice.customer === 'string' ? invoice.customer : null,
       });
+      break;
+    }
+    case 'checkout.session.completed': {
+      // The Settle Up checkout was paid → lift the lockout. (payment_intent
+      // .succeeded also recovers via its metadata; both are idempotent.)
+      const session = event.data.object;
+      if (session.payment_status === 'paid') {
+        await markPaymentRecovered({
+          userId: session.metadata?.userId,
+          customerId: typeof session.customer === 'string' ? session.customer : null,
+        });
+      }
       break;
     }
   }

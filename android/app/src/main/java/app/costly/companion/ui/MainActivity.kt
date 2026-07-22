@@ -2,6 +2,7 @@ package app.costly.companion.ui
 
 import android.Manifest
 import android.content.Intent
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -31,6 +32,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +49,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import app.costly.companion.Prefs
 import app.costly.companion.net.DeviceLinker
+import app.costly.companion.net.Network
 import app.costly.companion.overlay.OverlayPermission
 import app.costly.companion.spy.HeuristicSpyService
 import app.costly.companion.spy.UsageAccess
@@ -66,6 +69,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             CostlyTheme { ArmingScreen() }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Returning from the Settle Up browser flow → reconcile now. A 2xx
+        // heartbeat clears the lock (Phase 2), and the prefs listener in
+        // ArmingScreen dismisses the Settle Up screen the moment it does.
+        HeartbeatWorker.pingNow(this)
     }
 }
 
@@ -88,14 +99,23 @@ fun ArmingScreen() {
     var syncRequested by remember { mutableStateOf(false) }
     var overlayOn by remember { mutableStateOf(OverlayPermission.canDraw(context)) }
     var showRestrictedWarning by remember { mutableStateOf(false) }
-    val paymentFailed = remember { Prefs.isPaymentFailed(context) }
+    // Reactive so the screen dismisses itself the instant the lock clears
+    // (HeartbeatWorker.clearPaymentFailed writes the flag on a 2xx).
+    var paymentFailed by remember { mutableStateOf(Prefs.isPaymentFailed(context)) }
+    DisposableEffect(Unit) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            paymentFailed = Prefs.isPaymentFailed(context)
+        }
+        Prefs.registerChangeListener(context, listener)
+        onDispose { Prefs.unregisterChangeListener(context, listener) }
+    }
 
     // Phase 2 hard lock: a failed charge freezes the whole app. Block the
     // arming UI entirely and show only the Settle Up screen.
     if (paymentFailed) {
         SettleUpScreen(
-            settleUpUrl = Prefs.settleUpUrl(context),
-            onOpen = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
+            initialSettleUpUrl = Prefs.settleUpUrl(context),
+            onOpenUrl = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
         )
         return
     }
@@ -387,9 +407,18 @@ fun ArmingScreen() {
 /**
  * The Phase 2 hard-lock. Shown instead of the whole arming UI when a charge
  * has failed. There is no path back to arming from here — only settling.
+ *
+ * If a settleUpUrl already exists we open it directly; otherwise (the common
+ * case — bare PaymentIntents have no hosted URL) we mint a Stripe Checkout
+ * Session on demand via /api/stripe/create-checkout and launch it.
  */
 @Composable
-fun SettleUpScreen(settleUpUrl: String?, onOpen: (String) -> Unit) {
+fun SettleUpScreen(initialSettleUpUrl: String?, onOpenUrl: (String) -> Unit) {
+    val scope = rememberCoroutineScope()
+    var url by remember { mutableStateOf(initialSettleUpUrl) }
+    var generating by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -417,19 +446,49 @@ fun SettleUpScreen(settleUpUrl: String?, onOpen: (String) -> Unit) {
             color = Muted,
             fontSize = 14.sp,
         )
-        if (settleUpUrl != null) {
+
+        val existing = url
+        if (existing != null) {
             Button(
-                onClick = { onOpen(settleUpUrl) },
+                onClick = { onOpenUrl(existing) },
                 colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Settle up now") }
         } else {
-            Text(
-                "Open your Costly web dashboard to update your card and clear the balance.",
-                color = Muted,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
-            )
+            Button(
+                onClick = {
+                    generating = true
+                    error = null
+                    scope.launch {
+                        runCatching { Network.api.createCheckout().url }
+                            .onSuccess { generated ->
+                                generating = false
+                                if (generated != null) {
+                                    url = generated
+                                    onOpenUrl(generated)
+                                } else {
+                                    error = "Couldn't create a payment link. Try again."
+                                }
+                            }
+                            .onFailure {
+                                generating = false
+                                error = "Couldn't reach the server. Try again."
+                            }
+                    }
+                },
+                enabled = !generating,
+                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (generating) "Generating…" else "Generate payment link") }
         }
+
+        error?.let { Text(it, color = Burn, fontSize = 12.sp) }
+
+        Text(
+            "Once you've paid, this unlocks itself.",
+            color = Muted,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 12.sp,
+        )
     }
 }

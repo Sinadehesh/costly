@@ -93,6 +93,11 @@ data class PaymentRequiredResponse(
     val settleUpUrl: String? = null,
 )
 
+// Stripe Checkout Session URL for the Settle Up flow.
+data class CreateCheckoutResponse(
+    val url: String? = null,
+)
+
 // ── Redemption / sweat equity ─────────────────────────────────────────────
 
 data class WalkingSyncRequest(

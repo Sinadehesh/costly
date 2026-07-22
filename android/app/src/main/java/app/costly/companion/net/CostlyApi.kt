@@ -30,6 +30,10 @@ interface CostlyApi {
     @POST("api/device/steps")
     suspend fun syncSteps(@Body body: StepsSyncRequest): StepsSyncResponse
 
+    /** Settle Up: mint a Stripe Checkout Session (device-authed, no body). */
+    @POST("api/stripe/create-checkout")
+    suspend fun createCheckout(): CreateCheckoutResponse
+
     @GET("api/dashboard")
     suspend fun dashboard(@Query("userId") userId: String): DashboardResponse
 

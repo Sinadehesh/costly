@@ -26,11 +26,22 @@ export async function POST(req: Request) {
   // Body is now diagnostics-only; parse to validate shape (and reject junk).
   bodySchema.parse(await req.json());
 
+  // Record proof-of-life FIRST — a payment-failed user is still present (not
+  // deleted), so the dead man's switch must not also breach them for silence.
   const user = await prisma.user.update({
     where: { id: auth.userId },
     data: { lastHeartbeatAt: new Date() },
     include: { anchorItems: { orderBy: { tierLevel: 'asc' } } },
   });
+
+  // Phase 2 lockout: a failed off-session charge hard-blocks the device until
+  // the account is settled. The client catches this 402 → "Settle Up" state.
+  if (user.accountStatus === 'PAYMENT_FAILED') {
+    return NextResponse.json(
+      { error: 'payment_required', settleUpUrl: user.settleUpUrl },
+      { status: 402 },
+    );
+  }
 
   const activeContract = await prisma.commitmentContract.findFirst({
     where: { userId: auth.userId, status: 'ACTIVE' },

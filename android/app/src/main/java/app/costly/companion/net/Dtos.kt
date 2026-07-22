@@ -87,6 +87,12 @@ data class DeviceHeartbeatResponse(
     val anchorItems: List<AnchorLite> = emptyList(),
 )
 
+// Body of a 402 Payment Required (Phase 2 Settle Up lockout).
+data class PaymentRequiredResponse(
+    val error: String? = null,
+    val settleUpUrl: String? = null,
+)
+
 // ── Redemption / sweat equity ─────────────────────────────────────────────
 
 data class WalkingSyncRequest(

@@ -24,7 +24,10 @@ class BootReceiver : BroadcastReceiver() {
             HeartbeatWorker.pingNow(context)
             // Best-effort: starting a foreground service from BOOT_COMPLETED is
             // an allowed exemption, but OEMs vary — start() swallows a refusal.
-            if (UsageAccess.isGranted(context)) HeuristicSpyService.start(context)
+            // Skip entirely while locked into Settle Up.
+            if (!Prefs.isPaymentFailed(context) && UsageAccess.isGranted(context)) {
+                HeuristicSpyService.start(context)
+            }
         }
     }
 }

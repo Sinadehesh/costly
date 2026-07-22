@@ -16,6 +16,8 @@ object Prefs {
     private const val KEY_ACTIVE_SESSION = "activeSessionId"
     private const val KEY_RATE = "penaltyRateCentsPerMin"
     private const val KEY_ANCHORS = "anchorsJson"
+    private const val KEY_PAYMENT_FAILED = "paymentFailed"
+    private const val KEY_SETTLE_UP_URL = "settleUpUrl"
 
     private val anchorsAdapter by lazy {
         Network.moshi.adapter<List<AnchorLite>>(
@@ -94,5 +96,27 @@ object Prefs {
         sp(context).edit()
             .putInt(KEY_RATE, rateCentsPerMin)
             .putString(KEY_ANCHORS, anchorsAdapter.toJson(anchors))
+            .apply()
+
+    // ── Settle Up lockout (Phase 2) — set when the backend returns 402 ──────
+
+    fun isPaymentFailed(context: Context): Boolean =
+        sp(context).getBoolean(KEY_PAYMENT_FAILED, false)
+
+    fun settleUpUrl(context: Context): String? =
+        sp(context).getString(KEY_SETTLE_UP_URL, null)?.takeIf { it.isNotBlank() }
+
+    fun setPaymentFailed(context: Context, settleUpUrl: String?) =
+        sp(context).edit()
+            .putBoolean(KEY_PAYMENT_FAILED, true)
+            .apply {
+                if (settleUpUrl != null) putString(KEY_SETTLE_UP_URL, settleUpUrl)
+            }
+            .apply()
+
+    fun clearPaymentFailed(context: Context) =
+        sp(context).edit()
+            .putBoolean(KEY_PAYMENT_FAILED, false)
+            .remove(KEY_SETTLE_UP_URL)
             .apply()
 }

@@ -24,6 +24,14 @@ export async function POST(req: Request) {
   if (!user.stripePaymentMethodId) {
     return NextResponse.json({ error: 'no_payment_method' }, { status: 409 });
   }
+  // Phase 2: a locked account cannot open new billable sessions — the lockout
+  // must hold server-side too, not only in the UI (the spy is always-on).
+  if (user.accountStatus === 'PAYMENT_FAILED') {
+    return NextResponse.json(
+      { error: 'payment_required', settleUpUrl: user.settleUpUrl },
+      { status: 402 },
+    );
+  }
 
   const existing = await prisma.session.findFirst({
     where: { userId: auth.userId, status: 'ACTIVE' },

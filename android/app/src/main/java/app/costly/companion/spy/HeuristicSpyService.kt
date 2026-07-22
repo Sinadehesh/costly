@@ -140,7 +140,8 @@ class HeuristicSpyService : Service() {
     // ── Session lifecycle (all *Locked functions require [mutex]) ─────────
 
     private suspend fun startSessionLocked(pkg: String) {
-        if (!Prefs.isLinked(this)) return // unlinked — nothing to bill, no auth to send
+        // Unlinked, or hard-locked into Settle Up → don't even try to bill.
+        if (!Prefs.isLinked(this) || Prefs.isPaymentFailed(this)) return
 
         val id = Prefs.activeSessionId(this) ?: runCatching {
             Network.api.startSession(StartSessionRequest(appPackage = pkg)).sessionId

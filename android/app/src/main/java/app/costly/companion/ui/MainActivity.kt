@@ -88,6 +88,17 @@ fun ArmingScreen() {
     var syncRequested by remember { mutableStateOf(false) }
     var overlayOn by remember { mutableStateOf(OverlayPermission.canDraw(context)) }
     var showRestrictedWarning by remember { mutableStateOf(false) }
+    val paymentFailed = remember { Prefs.isPaymentFailed(context) }
+
+    // Phase 2 hard lock: a failed charge freezes the whole app. Block the
+    // arming UI entirely and show only the Settle Up screen.
+    if (paymentFailed) {
+        SettleUpScreen(
+            settleUpUrl = Prefs.settleUpUrl(context),
+            onOpen = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
+        )
+        return
+    }
 
     // Once linked AND Usage Access is granted, the heuristic engine can run.
     fun startEngineIfReady() {
@@ -370,5 +381,55 @@ fun ArmingScreen() {
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace,
         )
+    }
+}
+
+/**
+ * The Phase 2 hard-lock. Shown instead of the whole arming UI when a charge
+ * has failed. There is no path back to arming from here — only settling.
+ */
+@Composable
+fun SettleUpScreen(settleUpUrl: String?, onOpen: (String) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            "PAYMENT FAILED",
+            color = Burn,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 12.sp,
+            letterSpacing = 4.sp,
+        )
+        Text(
+            "SETTLE UP",
+            color = Burn,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            "A charge didn't go through, so everything is frozen. No metering, " +
+                "no arming, no mercy — until the balance clears. You knew the terms.",
+            color = Muted,
+            fontSize = 14.sp,
+        )
+        if (settleUpUrl != null) {
+            Button(
+                onClick = { onOpen(settleUpUrl) },
+                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Settle up now") }
+        } else {
+            Text(
+                "Open your Costly web dashboard to update your card and clear the balance.",
+                color = Muted,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+            )
+        }
     }
 }

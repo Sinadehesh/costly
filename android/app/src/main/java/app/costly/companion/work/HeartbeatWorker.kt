@@ -16,7 +16,10 @@ import app.costly.companion.BuildConfig
 import app.costly.companion.Prefs
 import app.costly.companion.net.DeviceHeartbeatRequest
 import app.costly.companion.net.Network
+import app.costly.companion.net.PaymentRequiredResponse
+import app.costly.companion.spy.HeuristicSpyService
 import app.costly.companion.spy.UsageAccess
+import retrofit2.HttpException
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -63,14 +66,30 @@ class HeartbeatWorker(context: Context, params: WorkerParameters) :
             response.penaltyRateCentsPerMin?.let { rate ->
                 Prefs.setMeterConfig(applicationContext, rate, response.anchorItems)
             }
+            // A clean 2xx means the server considers the account settled — lift
+            // any local Settle Up lock (recovery is server-driven).
+            Prefs.clearPaymentFailed(applicationContext)
             Result.success()
+        } catch (e: HttpException) {
+            if (e.code() == 402) {
+                // Phase 2 lockout: a charge failed. Hard-lock into Settle Up and
+                // kill the meter so a locked account stops accruing.
+                val url = runCatching {
+                    Network.moshi.adapter(PaymentRequiredResponse::class.java)
+                        .fromJson(e.response()?.errorBody()?.string() ?: "")
+                        ?.settleUpUrl
+                }.getOrNull()
+                Prefs.setPaymentFailed(applicationContext, url)
+                HeuristicSpyService.stop(applicationContext)
+            }
+            Result.success() // 402 (and other HTTP errors) won't fix on retry
         } catch (e: IOException) {
             // Offline or server unreachable — retry with backoff. Retrying IS
             // the product here: every failed attempt burns runway on the 24h
             // breach window.
             Result.retry()
         } catch (e: Exception) {
-            // Non-IO (4xx, parsing): retrying the same request won't help.
+            // Non-IO (parsing, etc.): retrying the same request won't help.
             Result.success()
         }
     }

@@ -109,6 +109,19 @@ data class WalkingSyncResponse(
     val changed: Boolean? = null,
 )
 
+// ── Daily steps (Phase 3 laziness penalty) ──────────────────────────────────
+
+data class StepsSyncRequest(
+    val steps: Int,
+    val day: String, // YYYY-MM-DD, device-local calendar day
+    val source: String = "health_connect",
+)
+
+data class StepsSyncResponse(
+    val ok: Boolean = false,
+    val steps: Int = 0,
+)
+
 // ── Dashboard (used to discover the pending redemption task) ───────────────
 
 data class DashboardResponse(

@@ -21,6 +21,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import app.costly.companion.Prefs
 import app.costly.companion.net.Network
+import app.costly.companion.net.StepsSyncRequest
 import app.costly.companion.net.WalkingSyncRequest
 import java.io.IOException
 import java.time.Duration
@@ -71,11 +72,20 @@ class HealthSyncWorker(context: Context, params: WorkerParameters) :
             return Result.failure()
         }
 
-        // ── FRONT A: today's total steps (midnight → now) ─────────────────
+        // ── FRONT A: today's total steps (midnight → now) → backend ───────
+        // The nightly /api/jobs/evaluate-steps cron reads this to price
+        // inactivity. Device-authed via the x-device-secret interceptor.
+        val zone = ZoneId.systemDefault()
         val totalSteps = fetchTodaySteps(client)
         Log.d(TAG, "Total steps today: $totalSteps")
-        // TODO(laziness): POST totalSteps to the backend once the
-        // daily-laziness endpoint exists, so the cat can price inactivity.
+        runCatching {
+            Network.api.syncSteps(
+                StepsSyncRequest(
+                    steps = totalSteps.toInt(),
+                    day = LocalDate.now(zone).toString(), // YYYY-MM-DD, same zone as fetch
+                ),
+            )
+        }.onFailure { Log.w(TAG, "step sync failed — retried next run", it) }
 
         // ── FRONT B: redemption sync (existing hold-release path) ─────────
         val pending = try {

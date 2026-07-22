@@ -7,6 +7,10 @@
     {
       "path": "/api/jobs/check-heartbeats",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/jobs/evaluate-steps",
+      "schedule": "0 3 * * *"
     }
   ]
 }

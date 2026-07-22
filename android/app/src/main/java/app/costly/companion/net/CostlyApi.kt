@@ -27,6 +27,9 @@ interface CostlyApi {
     @POST("api/device/heartbeat")
     suspend fun deviceHeartbeat(@Body body: DeviceHeartbeatRequest): DeviceHeartbeatResponse
 
+    @POST("api/device/steps")
+    suspend fun syncSteps(@Body body: StepsSyncRequest): StepsSyncResponse
+
     @GET("api/dashboard")
     suspend fun dashboard(@Query("userId") userId: String): DashboardResponse
 

@@ -92,10 +92,43 @@ model User {
   deviceLinkOtpHash      String?   @unique
   deviceLinkOtpExpiresAt DateTime?
 
-  sessions    Session[]
-  anchorItems AnchorItem[]
-  contracts   CommitmentContract[]
-  devices     Device[]
+  // ── Daily laziness penalty (Phase 3) ────────────────────────────────────
+  // Below dailyStepGoal for a completed day → the nightly cron charges
+  // lazinessPenaltyCents off-session. Defaults so existing users are covered.
+  dailyStepGoal        Int @default(8000)
+  lazinessPenaltyCents Int @default(200) // €2
+
+  sessions        Session[]
+  anchorItems     AnchorItem[]
+  contracts       CommitmentContract[]
+  devices         Device[]
+  dailyActivities DailyActivity[]
+}
+
+// Phase 3 — one row per user per calendar day. Step totals are pushed by the
+// Android HealthSyncWorker (Health Connect is on-device only) and read by the
+// nightly /api/jobs/evaluate-steps cron. penaltyEvaluatedAt is the DB-side
+// idempotency guard: the cron only looks at rows where it's null, and stamps
+// it once the day is settled, so a re-fired cron skips already-done days.
+model DailyActivity {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  day    DateTime @db.Date // the calendar day this covers (device-local)
+  steps  Int      @default(0)
+  source String?
+
+  // Laziness evaluation, written by the cron.
+  penaltyEvaluatedAt           DateTime?
+  penaltyChargeCents           Int? // amount charged (0 = goal met / exempt / unchargeable)
+  stripePenaltyPaymentIntentId String?   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, day])
+  @@index([day, penaltyEvaluatedAt])
 }
 
 // Phase 1 — one row per linked Android device. The raw x-device-secret is

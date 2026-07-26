@@ -40,22 +40,32 @@ collapses; keeping penalties as revenue avoids taking custody of user
 funds, which is what would trigger EU e-money questions; and
 penalty-funding lets the product be free to start.
 
-**The risk that remains is narrow: the 20% burn.** Costly is a deposit
+**The risk that remains is detection accuracy.** Costly is a deposit
 contract with clocks, same as the precedent — every session's 80% sits
 under a visible 24-hour countdown, and the contract runs a fixed 7 or 30
-days the user chose. Only the 20% burn is captured instantly, on the
-say-so of a detection algorithm alone. That is the piece a chargeback
-would target, which is why threshold tuning is the first line item in the
-ask (and why a grace window on the burn is worth considering).
+days the user chose. Costly holds no money at any point: Stripe holds the
+80% as an authorization on the user's own card, and we cancel or capture.
+
+**The 20% burn is permanent on purpose** (§7) — a loss that can be fully
+undone was never a loss, and the forty minutes don't come back either. Do
+not present it as a rough edge to be smoothed; a grace window on the burn
+would neuter the mechanic. The real exposure is that a *wrongly detected*
+session burns money that cannot be returned, which is why threshold tuning
+is the first line item in the ask, backed by a manual false-positive refund
+policy that is support practice rather than an advertised product path.
 
 ## Still open before submitting
 
-- **EU unfair-terms review of the breach fee** (§10). Framed correctly this
-  is ordinary ground — the user sets the amount themselves and signs a
-  fixed term, making uninstalling an early breach, the shape of a
-  phone-plan termination fee. Two specific lawyer questions remain:
-  whether it survives Directive 93/13/EEC scrutiny, and how the 14-day
-  distance-contract withdrawal right sits against a 7-day term.
+- **EU unfair-terms review of the breach fee** (§10). Ordinary ground when
+  framed correctly: the user sets the amount and signs a fixed term, so
+  uninstalling is an early breach — the shape of a phone-plan termination
+  fee.
+- **The withdrawal-right question** (§10). Onboarding takes express consent
+  to immediate performance plus the acknowledgement, which is the right
+  statutory mechanism. The open question is whether an *ongoing* 7-day
+  monitoring term counts as "fully performed" for that exception; if not, a
+  mid-term withdrawal may reduce recovery to pro-rata. May argue for a
+  30-day default.
 - **The bottom-up market estimate** (§9), currently tagged
   `[NEEDS SOURCE]`.
 

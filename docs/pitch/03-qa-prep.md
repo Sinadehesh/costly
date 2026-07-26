@@ -45,18 +45,45 @@ positive is free money for you."**
 > dormant, and two of three independent signals agreeing before it counts a
 > single second. No lone signal can charge a card.
 >
+> And where a false positive is demonstrated, I refund it by hand. That's a
+> support policy, not a product feature — nobody can plan around it, so the
+> mechanic stays intact, but the answer to "you charged me for a wobble in a
+> car mount" is a person, not a shrug.
+>
 > And the structure is the same deposit contract theirs is, with the same
 > kind of clock: every session's 80% sits under a visible 24-hour countdown
-> with a walking progress bar, and the contract itself runs a fixed 7 or 30
-> days that the user picked. The one charge that lands instantly is the 20%
-> burn — that's the piece resting purely on a detection algorithm, and it's
-> where I'd put the accuracy work first. I'm also considering putting a
-> short grace window on the burn so that nothing in the system is instant
-> and unappealable.
+> with a walking progress bar, and the contract runs a fixed 7 or 30 days
+> the user picked. The 20% burn is permanent by design — I'll defend that
+> separately. What I'd spend money on is detection accuracy, because a
+> wrongly-detected session burns money that can't come back.
 
-Volunteering the narrow version of your own weak spot — *the 20%, not "the
-whole trigger"* — is stronger than a general reassurance and stronger than
-the over-broad concession. It shows you know your system precisely.
+**"Why isn't the whole charge refundable, then? Keep the 20% and you're
+still profiting from failure."**
+
+This is the natural follow-up. Do not concede it — it's the core of the
+design.
+
+> Because a loss you can completely undo was never a loss. If every euro
+> comes back when you walk, the meter is a threat, not a consequence, and
+> what the user learns is that scrolling is free as long as they pay in steps
+> afterwards. Loss aversion needs a realized loss.
+>
+> And more honestly: the time doesn't come back. Someone who scrolls forty
+> minutes and then walks it off has still lost forty minutes of their
+> evening. Refunding everything would tell them the session cost nothing,
+> and that's a lie. The 20% is the honest residue of the part that genuinely
+> can't be returned — they need to see that something was actually lost.
+>
+> It also has to clear the card fee. It's the only money captured per
+> session, and EU processing is roughly 1.5% plus a fixed 25 cents.
+
+**"So you're holding people's money for 24 hours?"**
+
+> No — and this matters for what licences I need. Costly never touches the
+> 80%. It sits as an authorization hold on the user's own card, at Stripe,
+> and we either cancel it or capture it. There's no escrow, no wallet, no
+> customer funds on our books. The 80% isn't a deposit we're keeping for
+> them; it's a refund they can earn.
 
 ---
 
@@ -248,11 +275,14 @@ pre-seed; pretending otherwise is not.
 - **"Is this legal in the EU?"** → The design never takes custody of user
   money — Stripe holds it, I capture or cancel — so the licensing question
   doesn't arise. The breach fee is a user-priced early-termination term on a
-  fixed contract, which is ordinary ground. What I don't know yet is
-  narrower than "is it legal": whether the term survives unfair-terms
-  scrutiny under 93/13/EEC, and how the 14-day distance-contract withdrawal
-  right sits against a 7-day lock-in. Two questions for a lawyer, first line
-  item in the ask.
+  fixed contract, which is ordinary ground, and at onboarding I take express
+  consent to immediate performance plus the acknowledgement, which is the
+  statutory route on the 14-day withdrawal right. What I don't know is
+  narrower than "is it legal": whether an ongoing 7-day monitoring term
+  counts as *fully performed* for that exception — if it doesn't, a mid-term
+  withdrawal might reduce me to a pro-rata claim instead of the full fee.
+  That's a question for a lawyer and it may argue for making 30 days the
+  default. First line item in the ask.
 - **"What if the redemption rate is terrible?"** → Then Costly is a
   punishment app and the ratio or the split is wrong, and I'd rather learn
   that in week six than in year two.

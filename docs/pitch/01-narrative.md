@@ -93,8 +93,10 @@ Costly is built directly on both halves of that finding:
    the gyroscope's swipe-rhythm signature, media audio). No lone signal
    can charge a card.
 5. **The session ends — the financial moment.** 20% is captured
-   immediately, permanently: the burn. The other 80% goes onto a 24-hour
-   pre-authorization hold: purgatory.
+   immediately and permanently: the burn. It does not come back, because the
+   time didn't either. The other 80% goes onto a 24-hour pre-authorization
+   hold: purgatory. Costly never holds money — Stripe does — and the 80% is
+   a refund the user can *earn*, not a deposit we are keeping for them.
 6. **Redemption, 2:1.** Every scrolled minute owes two verified walking
    minutes, read from Health Connect. Hit the goal inside 24 hours and the
    hold is cancelled — the money never leaves. Miss it and the hold is
@@ -112,8 +114,9 @@ walking, and the user picks which.**
 Expect this question in the first two minutes of every meeting. The
 answer is architectural, not rhetorical:
 
-- **80% of every penalty is refundable by the user's own action.** The
-  default path out is walking, not paying.
+- **80% of every penalty is a refund the user can earn.** The default path
+  out is walking, not paying — and Costly never holds that money; it sits as
+  an authorization on the user's own card until it is cancelled or captured.
 - **A hard per-session cap** (default €30) ends the session rather than
   continuing to bill. The cap converts money-bleed into lockout.
 - **A self-exclusion path** that strips all stakes and leaves a plain free
@@ -198,25 +201,60 @@ Costly has two, both signed for in advance and both visible:
   the dashboard as a live countdown next to a walking-progress bar. This is
   the Beeminder shape exactly: a deadline the user watches approach, with a
   known action that clears it.
-- **The contract lock-in** — 7 or 30 days, chosen at onboarding, which is
-  the term the deletion fee runs against.
+- **The contract term** — 7 or 30 days, chosen at onboarding, which the
+  breach fee runs against.
 
 So the bulk of the money — the 80% — behaves like a deposit contract with a
 visible clock, which is the well-precedented part.
 
-The residual exposure is narrower than "the trigger" and worth naming
-precisely: **the 20% burn is captured instantly at session end, with no
-deadline and no appeal.** That is the one charge in the system that lands
-purely on the say-so of a detection algorithm. It is small by construction,
-but it is the piece a chargeback argument would target and the piece a
-wrongly-billed user would be angriest about.
+### The 20% is not a rough edge. It is the mechanism.
 
-Which makes this a **detection-accuracy problem, not an
-ethics-of-revenue problem**. It is why threshold tuning is the first line
-item in the ask, and why the per-session cap, the 2-of-3 signal vote, and
-the stored consent evidence are load-bearing rather than nice-to-have.
-Worth considering before real cards: put the burn on a short grace window
-too, so no charge in the system is instant and unappealable.
+Say this deliberately, because it will be misread as one:
+
+**The 20% burn is gone the moment the session ends, permanently, and that is
+the design.** Costly holds no money at any point — Stripe holds the 80%, and
+we either cancel it or capture it. The 80% is not the user's money in
+escrow; it is **a refund they can earn**.
+
+Two reasons the burn has to be irreversible:
+
+1. **A loss that can be fully undone was never a loss.** Loss aversion needs
+   a realized one. If every euro is recoverable by walking, the meter is a
+   threat rather than a consequence, and the user learns that scrolling is
+   free as long as they pay in steps afterwards.
+2. **The time is not refundable, so the money shouldn't be either.** A user
+   who scrolls forty minutes and then walks it off has still lost forty
+   minutes of their life. Refunding 100% would tell them the session cost
+   nothing, which is a lie. The burn is the honest residue of the part that
+   genuinely cannot be given back — and the user has to *see* that something
+   was lost.
+
+It also carries the unit economics: the burn is the only captured money per
+session, so it has to clear the card-processing cost. **Model this before
+launch** — EU card fees run roughly 1.5% + €0.25, so on a small session the
+fixed component dominates and a €1 burn is mostly fee. That is an argument
+for a session-level minimum or for aggregating small sessions, not for
+changing the split.
+
+### The residual exposure, stated precisely
+
+Not that the burn is unappealable — that is intentional and defensible.
+The exposure is that **if detection is wrong, the burn is an unrecoverable
+wrongful charge.** No product mechanism fixes that; two things do:
+
+- **Detection accuracy.** Threshold tuning is the first line item in the ask
+  for exactly this reason.
+- **A support policy, not a product path.** Manual goodwill refunds on
+  demonstrated false positives, handled case by case and never advertised as
+  a route. Users cannot plan around it, so the mechanic stays intact — but
+  the answer to "you charged me for a wobble in a car mount" is a human, not
+  a shrug. Every payment business runs this; write it down before the first
+  real card.
+
+This is a **detection-accuracy problem, not an ethics-of-revenue problem**.
+It is why the per-session cap, the 2-of-3 signal vote, and the stored
+consent evidence are load-bearing rather than nice-to-have — and why none of
+the fix belongs in the split.
 
 ## 8. Why now
 
@@ -295,7 +333,8 @@ sourced bottom-up beats a borrowed TAM in every partner meeting.
 | Google Play rejection | Engineered off AccessibilityService already. **Open:** `specialUse` foreground services still draw manual review. |
 | "You charged me for deleting an app" chargebacks | Consent evidence per contract; breach charge is idempotent. **Open:** needs an ~18h warning email and a reinstall-to-cure grace window — a phone dead in a drawer currently looks identical to deletion. |
 | Holding user funds | Avoided by design — Stripe holds, we capture or cancel; Costly never takes custody. Stays true as long as we do not escrow penalties into a user-owned pot (§7). |
-| EU consumer law on the breach fee | Framed correctly it is ordinary ground: the user is *suggested* a range, sets the amount themselves (€0–€1000, zero allowed), then signs a fixed 7- or 30-day term with that number as the early-breach fee — the shape of a phone-plan termination fee or a lease break, not an imposed penalty. **Open:** whether it survives unfair-terms scrutiny (Directive 93/13/EEC), and how the EU's 14-day distance-contract withdrawal right interacts with a 7-day lock-in. Specific questions for a lawyer, not open-ended risk. |
+| EU consumer law on the breach fee | Framed correctly it is ordinary ground: the user is *suggested* a range, sets the amount themselves (€0–€1000, zero allowed), then signs a fixed 7- or 30-day term with that number as the early-breach fee — the shape of a phone-plan termination fee or a lease break, not an imposed penalty. Self-pricing and the permitted €0 both help the unfair-terms analysis. **Open:** whether the term survives Directive 93/13/EEC scrutiny. |
+| The 14-day withdrawal right | Handled the right way — at onboarding we take **express consent to performance beginning immediately plus an acknowledgement**, which is the statutory mechanism under the Consumer Rights Directive (2011/83/EU) and should be captured regardless. **The wrinkle to raise with the lawyer:** for *services*, that exception generally bites once the service is **fully performed** inside the 14 days. A 7- or 30-day monitoring contract is arguably ongoing rather than fully performed on day one, and consumer statutory rights typically cannot be waived by agreement — only the specific statutory exception can be triggered, within its limits. If the right survives, a mid-term withdrawal may reduce what is recoverable to a **pro-rata** amount for service actually supplied, rather than the full breach fee. Ask this precisely; it may argue for the 30-day term as the default. *(Not legal advice — the point is to walk in with the right question.)* |
 | Gambling-adjacent perception | Structurally different: no upside, no chance element, the user cannot win money. Say it in those words. |
 | iOS | Requires Apple's Family Controls entitlement (application + approval). Android-first is deliberate; iOS after the mechanic is validated. |
 | Users delete rather than pay | **The single biggest unknown.** The self-priced breach fee is the current answer. Enforceable and precedented as a contract term — but whether it actually holds someone in at the moment they want out is behavioral, not legal, and only the alpha answers it. |
@@ -383,9 +422,10 @@ and I would rather learn that in week 6 than in year two.
 
 Accelerator program plus pre-seed. Use of funds, in priority order:
 
-1. **Legal and compliance** — an EU unfair-terms review of the breach fee
-   and how the 14-day distance-contract withdrawal right sits against a
-   7-day term. Two specific questions, not open-ended risk.
+1. **Legal and compliance** — an EU unfair-terms review of the breach fee,
+   and whether an ongoing 7-day monitoring term counts as "fully performed"
+   for the immediate-performance exception to the 14-day withdrawal right.
+   Two specific questions, not open-ended risk.
 2. **The alpha cohort** — recruitment and the reimbursement pool that lets
    me run real cards ethically at small stakes.
 3. **One Android contractor, part-time** — detection threshold tuning and

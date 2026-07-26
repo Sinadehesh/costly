@@ -91,20 +91,22 @@ ticking. One image, no text.
 > 3. Sign a fixed 7- or 30-day contract — **you set the breach fee**. Card
 >    saved.
 > 4. Scroll a targeted app → the meter runs
-> 5. Session ends → **20% charged. 80% held for 24 hours.**
+> 5. Session ends → **20% gone for good. 80% held for 24 hours.**
 > 6. Walk 2 minutes per scrolled minute, verified → **hold released**
 > 7. Don't → captured
 
-**Say:** Step 5 and 6 are the design. The money doesn't vanish — it goes
-into purgatory, on a card hold, for a day. Scrolling converts into either
-money or walking, and the user chooses which. Walking is the default path
-out.
+**Say:** Steps 5 and 6 are the design. The 80% is a refund you can earn —
+we never hold it, Stripe does. The 20% is gone permanently, deliberately:
+you didn't get the forty minutes back either. A loss you can fully undo was
+never a loss, and I'm not going to tell someone the session cost them
+nothing when it cost them their evening.
 
 ---
 
 ### 7 — "Isn't this predatory?"
 
-> ## 80% of every penalty is refundable by the user.
+> ## 80% of every penalty is a refund you can earn.
+> We never hold your money. Stripe holds it; we cancel or capture.
 > Hard per-session cap → the session ends, billing stops.
 > Self-exclusion switch → all stakes gone, no friction on that path.
 > The app celebrates loudly when you beat it.
@@ -137,8 +139,9 @@ going for a walk.
 
 **If pushed on alignment, the follow-up:** and it's a deposit contract with
 a clock, same as theirs — every session's 80% sits under a visible 24-hour
-countdown, and the contract itself runs 7 or 30 days. The only instant
-charge is the 20%, which is where I'd focus the accuracy work.
+countdown, and the contract runs a fixed 7 or 30 days. The 20% is
+permanent on purpose. Where I'd spend money is detection accuracy, because
+a wrongly-detected session burns money that can't come back.
 
 ---
 

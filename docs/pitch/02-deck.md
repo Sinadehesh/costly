@@ -108,27 +108,36 @@ out.
 > Self-exclusion switch → all stakes gone, no friction on that path.
 > The app celebrates loudly when you beat it.
 >
-> **The ideal outcome for any user is that we earn nothing from them.**
+> **The default way out of a charge is a walk, not a payment.**
 
 **Say:** I put this slide seventh because it's the question everyone asks
-second, and it deserves a structural answer, not a reassurance. Which is
-also why the revenue model can't be built on their failure — next slide.
+second, and it deserves a structural answer rather than a reassurance. Every
+line here is a thing the code does, not a promise.
 
 ---
 
 ### 8 — Business model
 
-> **Subscription €5–9/month.**
-> Penalties go into the user's **own savings pot**, toward the thing they
-> named. We take a handling fee.
+> ## The penalties are the revenue.
+> **Beeminder has run on exactly this for 15 years** — you pledge, you
+> derail, they charge you and keep it. Pledge-funded *instead of*
+> subscription-funded, so nobody gets priced out.
+> StepBet rakes 15% of the forfeit pot. DietBet, 10–25%.
 >
-> We earn when you subscribe. Not when you slip.
+> Ours is **softer than all of them**: 80% is walkable back.
 
-**Say:** And it makes the threat better, not weaker: "you're going to buy
-that PS5 anyway — slowly, stupidly, in penalties, instead of choosing to."
-The current build routes penalties to us; I think that's the wrong
-long-term answer and I'd want to pressure-test the switch with you.
-[**Decide before pitching — see narrative §7.**]
+**Say:** I know the reflex is "so you profit when users fail." Beeminder's
+answer is the right one and I'll use it: you earn in proportion to the value
+delivered, because the pledge *is* the mechanism. And it means the product
+can be free to start — a subscription wall in front of a behavior-change
+tool selects for the people who need it least. The difference in my version
+is that a Beeminder derailment is 100% gone and mine is 80% refundable by
+going for a walk.
+
+**If pushed on alignment, the follow-up:** my risk isn't where the money
+goes, it's what triggers the charge — passive detection instead of a
+deadline the user watched. That's an accuracy problem, and it's the first
+thing I'd spend money on.
 
 ---
 
@@ -205,7 +214,7 @@ I built this whole system myself.
 
 > **Weeks 1–4** — harden, deploy, tune detection → first live loop
 > **Weeks 5–8** — 30–50 user alpha, real cards, small stakes → retention
-> and redemption data; legal opinion on escrow
+> and redemption data; legal opinion on the contract terms
 > **Weeks 9–12** — randomized 3-arm study: awareness vs. soft friction vs.
 > stakes → **effect size**
 >
@@ -215,8 +224,9 @@ I built this whole system myself.
 > ### The ask
 > Program + pre-seed → legal/compliance · alpha cohort · part-time Android
 > contractor · the study.
-> From you specifically: **payments and regulatory introductions**, and
-> pressure on slide 8.
+> From you specifically: **payments and regulatory introductions**, and time
+> with people who've shipped products that charge cards on an automated
+> trigger.
 
 **Say:** If the redemption rate comes back low, Costly is a punishment app
 and needs rebalancing — and I'd rather find that out in week six than in

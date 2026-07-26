@@ -123,36 +123,82 @@ answer is architectural, not rhetorical:
   `termsVersion`), because a charge nobody can prove was agreed to is
   indefensible.
 
-The honest framing to use out loud: *the product's ideal end state for any
-individual user is that it earns nothing from them.* Which is exactly why
-the revenue model cannot be built on their failure — see §7.
+The honest framing to use out loud: *the default path out of every charge is
+a walk, not a payment.* We earn when the mechanism was needed and the user
+chose not to use it — which is the same place Beeminder has earned for
+fifteen years (§7), except that ours is 80% refundable and theirs is not.
 
-## 7. Business model — the decision to make before you pitch
+## 7. Business model — penalties are the revenue, and that is a precedented model
 
-**What the code does today:** penalties become company revenue.
+**Penalties become company revenue.** That is what the code does and it is
+what we pitch. It is not a novel or an awkward position: it is how the
+longest-running product in this category has worked for over a decade.
 
-**The problem with that:** it is revenue that grows when the user fails.
-Every partner will name it, and they will be right. It also puts the
-product on the wrong side of the regulatory conversation before it starts.
+**The direct precedent is Beeminder.** Users pledge money against a goal;
+when they derail, Beeminder charges them and **keeps it**. That is
+explicitly the business model, not a side effect — and their own framing of
+it is the argument to borrow: *the company makes money in proportion to how
+much value the user gets*, because the pledge is the entire mechanism that
+makes the goal work. They are deliberately pledge-focused **rather than**
+subscription-focused, which lets anyone start for free instead of hitting a
+paywall ([Beeminder strategy memo](https://blog.beeminder.com/focus/);
+[Beeminder FAQ](https://www.beeminder.com/faq)).
 
-**Three options:**
+Worth stealing from them, too: their pledge escalates on a fixed ladder —
+$0 → 5 → 10 → 30 → 90 → 270 → 810 → 2430 → 7290 — stepping up on each
+derailment, **up to a user-set cap**
+([Beeminder help](https://help.beeminder.com/article/20-how-much-do-i-pledge-on-my-goals)).
+That is fifteen years of evidence for escalating, self-chosen, capped
+stakes, and it maps cleanly onto the rate ladder.
 
-| | Model | ARPU | Alignment | Risk |
-| --- | --- | --- | --- | --- |
-| A | Penalties = revenue (today's build) | Highest | Bad — we profit from relapse | High: optics, regulatory, App Store |
-| **B** | **Subscription €5–9/mo + penalties escrowed into the user's own savings pot toward their anchor item; small handling fee** | Medium | **Strong — we earn on subscription, not failure** | Medium: escrow may trigger EU e-money rules |
-| C | Penalties to charity or anti-charity (stickK model) | Lowest | Clean | Payout ops overhead, weak unit economics |
+The adjacent wagering products monetize failure through a rake instead:
+StepBet takes ~15% of a pot funded by the players who miss their goal;
+DietBet takes 10–25% ([StepBet](https://sidehusl.com/stepbet/);
+[DietBet breakdown](https://www.mymoneyblog.com/dietbet-profit-numbers-breakdown.html)).
+Weaker precedents for us — they are peer-to-peer, so the company never
+holds the forfeit — but they establish that app stores and payment
+processors have been fine with failure-funded consumer health products for
+years.
 
-**Recommendation: pitch B.** It fixes the alignment attack, and it makes
-the hostage ladder literal in a way that is genuinely better product: the
-money you lose to scrolling *actually buys the PS5*. The threat becomes
-"you will buy this thing slowly and stupidly, in penalties, instead of
-choosing to" — which is more interesting than "we take your money," and
-strictly more defensible.
+**Why this is the right answer for Costly specifically, not just the
+precedented one:**
 
-Keep A as the alpha mechanic (it is what is built, and it is testable at
-small stakes), and be explicit that B is the shipped model. Confirm the
-escrow legality first — §10.
+1. **The villain needs skin in the game.** The product's entire dramatic
+   premise is an antagonist that profits when you scroll and *can lose*
+   when you don't. Route the money into the user's own savings pot and the
+   antagonist has no stake in the outcome — Costly collapses into a savings
+   app with a mean voice. The persona is not decoration; it is the
+   retention mechanic, and it only works if the threat is real.
+2. **It avoids the regulatory problem rather than creating one.** Escrowing
+   penalties into a user-owned pot means holding customer funds, which is
+   what triggers EU e-money and payment-institution questions. Today's
+   design never takes custody — Stripe holds, we capture or cancel. The
+   simpler revenue model is also the simpler licensing position.
+3. **Our version is already gentler than the precedent.** A Beeminder
+   derailment charge is 100% gone. In Costly, 80% of every penalty is
+   walkable back inside 24 hours, and the default path out is exercise, not
+   payment. We are strictly softer than the model that has run for fifteen
+   years without being called predatory.
+4. **Nobody gets priced out.** Like Beeminder, penalty-funded means the
+   product can be free to start. A subscription wall in front of a
+   behavior-change tool selects for the people who need it least.
+
+**Optional later, not in the pitch:** a paid tier for analytics, multi-device,
+and longer contracts. Additive, never the primary line.
+
+### Where the real risk actually sits
+
+Not in *earning from failure* — in **what triggers the charge**. Beeminder
+charges on a discrete event the user declared, with a visible deadline they
+watched approach. Costly charges continuously, from passive algorithmic
+detection, at high frequency, with no deadline the user is watching.
+
+That difference is the whole risk surface, and it is a **detection-accuracy
+and consent problem, not an ethics-of-revenue problem**. It is why the
+threshold tuning in §10 is the first line item in the ask, and why the
+per-session cap, the 2-of-3 signal vote, and the stored consent evidence
+are load-bearing rather than nice-to-have. Get those right and the revenue
+model needs no apology.
 
 ## 8. Why now
 
@@ -199,7 +245,8 @@ sourced bottom-up beats a borrowed TAM in every partner meeting.
 | A false positive charges someone unfairly | Mitigated by design: screen-on gate, 2-of-3 signal vote, per-session cap. **Open:** gyroscope thresholds are first-pass estimates and need on-device tuning before real cards. |
 | Google Play rejection | Engineered off AccessibilityService already. **Open:** `specialUse` foreground services still draw manual review. |
 | "You charged me for deleting an app" chargebacks | Consent evidence per contract; breach charge is idempotent. **Open:** needs an ~18h warning email and a reinstall-to-cure grace window — a phone dead in a drawer currently looks identical to deletion. |
-| Escrow / holding user funds (model B) | **Open — blocking.** May trigger EU e-money or payment-institution rules. Needs a real legal opinion. Today's hold-only design avoids custody. |
+| Holding user funds | Avoided by design — Stripe holds, we capture or cancel; Costly never takes custody. Stays true as long as we do not escrow penalties into a user-owned pot (§7). |
+| EU consumer law on the deletion fee | **Open.** A pre-authorized penalty for uninstalling software is the least-tested term in the contract. Needs a real opinion — first line item in the ask. |
 | Gambling-adjacent perception | Structurally different: no upside, no chance element, the user cannot win money. Say it in those words. |
 | iOS | Requires Apple's Family Controls entitlement (application + approval). Android-first is deliberate; iOS after the mechanic is validated. |
 | Users delete rather than pay | **The single biggest unknown.** The deletion fee is the current answer and it is the most fragile part of the design. The alpha exists to measure this. |
@@ -273,7 +320,7 @@ consequence. Costly is that finding, built.
 | Weeks | Work | Gate |
 | --- | --- | --- |
 | 1–4 | Close web authorization, build the money-math test suite, deploy, tune detection thresholds on real devices, add the dead-man's-switch grace rails | First full live loop in Stripe test mode on real hardware |
-| 5–8 | Alpha with 30–50 recruited users, real cards, deliberately small stakes and low caps. Instrument everything. Legal opinion on the escrow model | Retention and redemption data; a decision on model B |
+| 5–8 | Alpha with 30–50 recruited users, real cards, deliberately small stakes and low caps. Instrument everything. Legal opinion on the deletion fee and the contract terms | Retention and redemption data; a defensible contract |
 | 9–12 | **The study.** Randomized, three arms: awareness only vs. soft friction vs. Costly stakes. Primary outcome: daily minutes in targeted apps at week 4 against pre-install baseline | A causal effect size — the sales asset and the publication |
 
 **Primary metric:** reduction in daily minutes in targeted apps, week 4 vs.
@@ -287,8 +334,8 @@ and I would rather learn that in week 6 than in year two.
 
 Accelerator program plus pre-seed. Use of funds, in priority order:
 
-1. **Legal and compliance** — the escrow opinion, terms, EU consumer-law
-   review of the deletion fee. This gates the business model.
+1. **Legal and compliance** — contract terms and an EU consumer-law review
+   of the deletion fee, which is the least-tested term we have.
 2. **The alpha cohort** — recruitment and the reimbursement pool that lets
    me run real cards ethically at small stakes.
 3. **One Android contractor, part-time** — detection threshold tuning and
@@ -297,8 +344,9 @@ Accelerator program plus pre-seed. Use of funds, in priority order:
 4. **The study** — instrumentation, incentives, analysis.
 
 What I want from the program itself, beyond money: **payments and
-regulatory introductions**, and pressure on the business-model decision in
-§7 from people who have shipped consumer products that touch money.
+regulatory introductions**, and time with people who have shipped consumer
+products that charge cards on an automated trigger — the trigger is where my
+risk lives (§7), not the revenue model.
 
 ---
 

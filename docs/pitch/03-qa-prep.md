@@ -9,25 +9,51 @@ uncertainty.
 
 ## The alignment attack
 
+This is the question you will get most often. Do not flinch and do not
+hedge — you have a fifteen-year precedent and a version that is gentler
+than it.
+
 **"So you make money when your users fail?"**
 
-> Today's build does, and I think that's wrong. The model I want to ship is
-> subscription revenue, with penalties going into the user's own savings
-> pot toward the thing they named. We earn when they subscribe, not when
-> they slip. It also makes the threat sharper: you're going to buy that
-> PS5 anyway — slowly and stupidly, in penalties, instead of choosing to.
+> Yes — the same way Beeminder has for fifteen years. You pledge against a
+> goal, you derail, they charge you and keep it. That's the business model,
+> not a loophole, and their framing is the right one: you earn in proportion
+> to the value delivered, because the pledge *is* the mechanism that makes
+> the goal work. It also means the product can be free to start — a
+> subscription wall in front of a behavior-change tool selects for the
+> people who need it least.
+>
+> And mine is softer than theirs. A Beeminder derailment charge is gone.
+> Eighty percent of a Costly charge is refundable inside 24 hours by going
+> for a walk.
 
-Do not get defensive here. Naming it as a decision you've already
-identified is stronger than defending the current code.
+**"That still sounds like you're incentivized to make people fail."**
+
+> Then I'd point at what the code actually does. There's a hard per-session
+> cap that *ends the session* rather than continuing to bill — I've capped
+> my own revenue per session in software. Eighty percent of every charge is
+> designed to be given back. And there's a self-exclusion switch that
+> strips all stakes with no friction. If I wanted to maximize extraction,
+> those three things wouldn't exist.
 
 **"What's your incentive to make the detection accurate, then? A false
 positive is free money for you."**
 
-> Under the subscription model it isn't — a wrongful charge costs me a
-> subscriber and a chargeback. That's the alignment argument in practice.
-> Structurally: the meter needs the screen on, the app in the foreground,
-> and two of three independent signals agreeing before it counts a single
-> second. And every session is capped.
+> A wrongful charge costs me the user, a chargeback, and Stripe risk-scoring
+> my account — that's expensive money, not free money. Structurally, the
+> meter needs the screen on, the app in the foreground, the phone not
+> dormant, and two of three independent signals agreeing before it counts a
+> single second. No lone signal can charge a card.
+>
+> But I'll be straight with you: the accuracy of the trigger is where my
+> real risk sits, not the revenue direction. Beeminder charges on a discrete
+> event you declared, with a deadline you watched approach. I charge
+> continuously off passive detection. That's a harder consent story and it's
+> the first thing I'd spend program money on.
+
+That last paragraph is the highest-value thing you can say in this whole
+exchange. It reframes the objection from an ethics question you'd have to
+defend into an engineering question you're already funding.
 
 ---
 
@@ -104,6 +130,22 @@ and then churns?"**
 > that already doesn't work. That's not a moat I built; it's one their
 > position gives me.
 
+**"You cited Beeminder — they've been at this fifteen years and they're
+tiny. Doesn't that cap your outcome?"**
+
+Expect this immediately after you use the precedent. Have the answer ready.
+
+> Beeminder is deliberately a small bootstrapped business, and it's built
+> for a quantified-self audience willing to define a goal, wire up a data
+> source, and maintain a graph. That setup effort is what keeps it niche —
+> it's a tool for people who already think in metrics.
+>
+> Costly asks for none of that. After onboarding you never declare a goal or
+> log anything; you just open Instagram and the meter runs. The precedent
+> proves the monetization is viable and that app stores and processors
+> tolerate it. It doesn't cap the market, because the friction that kept
+> Beeminder small is exactly the friction I removed.
+
 **"Why won't Opal or one sec add it in a sprint?"**
 
 > They'd need three things at once: Play-compliant detection without
@@ -177,10 +219,12 @@ pre-seed; pretending otherwise is not.
   is reachable organically and that's the first thing I'd test.
 - **"What's the effect size?"** → That's what weeks 9–12 are for. If I knew
   it, I'd be raising a seed, not applying to a program.
-- **"Is this legal in the EU?"** → The hold-only design avoids custody, so
-  today I think yes. The escrow model may trigger e-money rules and I want
-  a real opinion before I promise it. That's the first line item in the
-  ask.
+- **"Is this legal in the EU?"** → The design never takes custody of user
+  money — Stripe holds it, I capture or cancel — so the licensing question
+  I'd otherwise have doesn't arise. The part I genuinely don't know is
+  whether the deletion fee survives EU consumer-law scrutiny; a
+  pre-authorized penalty for uninstalling software is the least-tested term
+  in my contract. First line item in the ask.
 - **"What if the redemption rate is terrible?"** → Then Costly is a
   punishment app and the ratio or the split is wrong, and I'd rather learn
   that in week six than in year two.

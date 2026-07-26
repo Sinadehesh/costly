@@ -25,19 +25,34 @@ partner meetings. Founder: **Sina Dehesh** (Milan).
    A founder who performs the bit for eight minutes reads as a person
    who can't step outside their own product.
 
-## Open decisions before this pitch is submittable
+## The business model is settled: penalties are the revenue
 
-Two things in `01-narrative.md` are recommendations, not settled facts.
-Decide them before you send anything:
+`01-narrative.md` §7 argues this position rather than hedging it, because
+it is precedented. Beeminder has charged users on failure and kept the
+money for fifteen years, deliberately pledge-funded instead of
+subscription-funded so nobody gets priced out; StepBet and DietBet rake
+10–25% of a forfeit pot. Costly's version is gentler than any of them —
+80% of every penalty is walkable back inside 24 hours.
 
-- **The business model** (§7). The build currently routes penalties to
-  the company. The recommended pitch position routes them into the
-  user's own savings pot instead, with subscription as revenue. This is a
-  product decision with real code behind it, and partners will attack the
-  current version within two minutes.
-- **The legal position** (§10). Holding user money in escrow may trigger
-  EU e-money/payment-institution rules. Today's Stripe-hold design avoids
-  custody. Get an actual opinion before promising escrow on a slide.
+Three reasons this is right for Costly and not merely defensible: the
+villain persona needs a real stake or the whole antagonist premise
+collapses; keeping penalties as revenue avoids taking custody of user
+funds, which is what would trigger EU e-money questions; and
+penalty-funding lets the product be free to start.
+
+**The risk that remains is the trigger, not the revenue.** Beeminder
+charges on a discrete event the user declared, against a deadline they
+watched approach. Costly charges continuously off passive detection. That
+is a detection-accuracy and consent problem — which is why threshold
+tuning is the first line item in the ask.
+
+## Still open before submitting
+
+- **EU consumer law on the deletion fee** (§10). A pre-authorized penalty
+  for uninstalling software is the least-tested term in the contract.
+  Needs a real opinion.
+- **The bottom-up market estimate** (§9), currently tagged
+  `[NEEDS SOURCE]`.
 
 ## Also worth fixing
 

@@ -83,8 +83,10 @@ Costly is built directly on both halves of that finding:
    60 for the per-minute penalty. No income guessing.
 2. **Name the hostages.** Five things you want, at rising prices. Losses
    are always displayed as a percentage of these, euros secondary.
-3. **Sign the contract.** A lock-in period (7 or 30 days) and a deletion
-   fee you choose. Card saved, consent timestamped.
+3. **Sign the contract.** A fixed term — 7 or 30 days — and an early-breach
+   fee the user sets themselves from a suggested range (€0–€1000; €0 is
+   allowed, and labelled "Not Recommended"). Card saved, consent timestamped
+   against the exact terms version.
 4. **The companion app watches.** When a targeted app is in the
    foreground, a meter runs — but only while the screen is on and at least
    two of three engagement signals agree (the app pulling network data,
@@ -99,7 +101,8 @@ Costly is built directly on both halves of that finding:
    captured.
 7. **The dead man's switch.** The app pings the backend every 12 hours.
    Two consecutive missed windows during lock-in — deleted app, revoked
-   permissions — triggers the deletion fee you signed for.
+   permissions — is an early breach of the term, and the fee the user
+   priced themselves applies.
 
 The mechanic in one sentence: **scrolling converts into either money or
 walking, and the user picks which.**
@@ -188,17 +191,32 @@ and longer contracts. Additive, never the primary line.
 
 ### Where the real risk actually sits
 
-Not in *earning from failure* — in **what triggers the charge**. Beeminder
-charges on a discrete event the user declared, with a visible deadline they
-watched approach. Costly charges continuously, from passive algorithmic
-detection, at high frequency, with no deadline the user is watching.
+Not in *earning from failure*. And not in a missing deadline either —
+Costly has two, both signed for in advance and both visible:
 
-That difference is the whole risk surface, and it is a **detection-accuracy
-and consent problem, not an ethics-of-revenue problem**. It is why the
-threshold tuning in §10 is the first line item in the ask, and why the
-per-session cap, the 2-of-3 signal vote, and the stored consent evidence
-are load-bearing rather than nice-to-have. Get those right and the revenue
-model needs no apology.
+- **The 24-hour redemption window** on every session's 80% hold, shown on
+  the dashboard as a live countdown next to a walking-progress bar. This is
+  the Beeminder shape exactly: a deadline the user watches approach, with a
+  known action that clears it.
+- **The contract lock-in** — 7 or 30 days, chosen at onboarding, which is
+  the term the deletion fee runs against.
+
+So the bulk of the money — the 80% — behaves like a deposit contract with a
+visible clock, which is the well-precedented part.
+
+The residual exposure is narrower than "the trigger" and worth naming
+precisely: **the 20% burn is captured instantly at session end, with no
+deadline and no appeal.** That is the one charge in the system that lands
+purely on the say-so of a detection algorithm. It is small by construction,
+but it is the piece a chargeback argument would target and the piece a
+wrongly-billed user would be angriest about.
+
+Which makes this a **detection-accuracy problem, not an
+ethics-of-revenue problem**. It is why threshold tuning is the first line
+item in the ask, and why the per-session cap, the 2-of-3 signal vote, and
+the stored consent evidence are load-bearing rather than nice-to-have.
+Worth considering before real cards: put the burn on a short grace window
+too, so no charge in the system is instant and unappealable.
 
 ## 8. Why now
 
@@ -226,13 +244,44 @@ model needs no apology.
 - **Screen-time management software:** $3.8B (2025) → $9.7B (2034), 10.9%
   CAGR ([Dataintelo](https://dataintelo.com/report/screen-time-management-software-market)).
 
-Those are context, not the argument. The argument is the beachhead:
+Those are context, not the argument. There are two real arguments.
+
+### Why this market is structurally larger than the commitment-contract market
+
+Every existing money-at-stake product requires the user to **construct a
+contract**: pick a goal, quantify it, define what success means, wire up a
+data source, maintain it. That is the ceiling on Beeminder and stickK, and
+it is not a marketing problem — it is a population problem. The market for
+commitment contracts is bounded by *people who already have an explicit,
+quantified personal goal and the discipline to model it*. That is a small,
+self-selecting group, which is why fifteen years of a working business model
+produced a small business.
+
+**Costly has nothing to construct, because the problem states itself.**
+"I scroll too much" is not a goal a user has to define — it is a complaint
+most smartphone owners already volunteer, unprompted, with no framework and
+no metric. There is no target to set, no graph to maintain, no data source
+to connect. After onboarding the user does nothing at all: they open
+Instagram and the meter runs.
+
+That is the difference between a tool for people who think in metrics and a
+product aimed at a near-universal behavior. The precedent proves the
+monetization works; it does not bound the market, because the setup burden
+that kept it niche is the exact thing Costly removes.
+
+### The beachhead
 
 **People who have already paid for a blocker and relapsed anyway.** They
 have proven willingness to pay, proven dissatisfaction with soft friction,
 and they self-identify in public — App Store reviews of Opal and one sec
 are full of "I just turn it off." That is the first thousand users, and
 they are reachable without paid acquisition.
+
+**The honest caveat, for the alpha to answer:** the funnel constraint is not
+goal-definition, it is willingness to put a card down against your own
+behavior. That is a narrower gate than "scrolls too much," and no amount of
+market sizing substitutes for measuring it. It is the first number the alpha
+produces.
 
 `[NEEDS SOURCE]` — before submitting, build the bottom-up: paying users
 across Opal / Freedom / one sec / FocusMe × plausible conversion. A
@@ -246,10 +295,10 @@ sourced bottom-up beats a borrowed TAM in every partner meeting.
 | Google Play rejection | Engineered off AccessibilityService already. **Open:** `specialUse` foreground services still draw manual review. |
 | "You charged me for deleting an app" chargebacks | Consent evidence per contract; breach charge is idempotent. **Open:** needs an ~18h warning email and a reinstall-to-cure grace window — a phone dead in a drawer currently looks identical to deletion. |
 | Holding user funds | Avoided by design — Stripe holds, we capture or cancel; Costly never takes custody. Stays true as long as we do not escrow penalties into a user-owned pot (§7). |
-| EU consumer law on the deletion fee | **Open.** A pre-authorized penalty for uninstalling software is the least-tested term in the contract. Needs a real opinion — first line item in the ask. |
+| EU consumer law on the breach fee | Framed correctly it is ordinary ground: the user is *suggested* a range, sets the amount themselves (€0–€1000, zero allowed), then signs a fixed 7- or 30-day term with that number as the early-breach fee — the shape of a phone-plan termination fee or a lease break, not an imposed penalty. **Open:** whether it survives unfair-terms scrutiny (Directive 93/13/EEC), and how the EU's 14-day distance-contract withdrawal right interacts with a 7-day lock-in. Specific questions for a lawyer, not open-ended risk. |
 | Gambling-adjacent perception | Structurally different: no upside, no chance element, the user cannot win money. Say it in those words. |
 | iOS | Requires Apple's Family Controls entitlement (application + approval). Android-first is deliberate; iOS after the mechanic is validated. |
-| Users delete rather than pay | **The single biggest unknown.** The deletion fee is the current answer and it is the most fragile part of the design. The alpha exists to measure this. |
+| Users delete rather than pay | **The single biggest unknown.** The self-priced breach fee is the current answer. Enforceable and precedented as a contract term — but whether it actually holds someone in at the moment they want out is behavioral, not legal, and only the alpha answers it. |
 | Solo founder | Real. Addressed in §12 by what has already shipped alone. |
 
 ## 11. Status — what is actually true today
@@ -334,8 +383,9 @@ and I would rather learn that in week 6 than in year two.
 
 Accelerator program plus pre-seed. Use of funds, in priority order:
 
-1. **Legal and compliance** — contract terms and an EU consumer-law review
-   of the deletion fee, which is the least-tested term we have.
+1. **Legal and compliance** — an EU unfair-terms review of the breach fee
+   and how the 14-day distance-contract withdrawal right sits against a
+   7-day term. Two specific questions, not open-ended risk.
 2. **The alpha cohort** — recruitment and the reimbursement pool that lets
    me run real cards ethically at small stakes.
 3. **One Android contractor, part-time** — detection threshold tuning and

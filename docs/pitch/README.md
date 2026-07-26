@@ -40,17 +40,22 @@ collapses; keeping penalties as revenue avoids taking custody of user
 funds, which is what would trigger EU e-money questions; and
 penalty-funding lets the product be free to start.
 
-**The risk that remains is the trigger, not the revenue.** Beeminder
-charges on a discrete event the user declared, against a deadline they
-watched approach. Costly charges continuously off passive detection. That
-is a detection-accuracy and consent problem — which is why threshold
-tuning is the first line item in the ask.
+**The risk that remains is narrow: the 20% burn.** Costly is a deposit
+contract with clocks, same as the precedent — every session's 80% sits
+under a visible 24-hour countdown, and the contract runs a fixed 7 or 30
+days the user chose. Only the 20% burn is captured instantly, on the
+say-so of a detection algorithm alone. That is the piece a chargeback
+would target, which is why threshold tuning is the first line item in the
+ask (and why a grace window on the burn is worth considering).
 
 ## Still open before submitting
 
-- **EU consumer law on the deletion fee** (§10). A pre-authorized penalty
-  for uninstalling software is the least-tested term in the contract.
-  Needs a real opinion.
+- **EU unfair-terms review of the breach fee** (§10). Framed correctly this
+  is ordinary ground — the user sets the amount themselves and signs a
+  fixed term, making uninstalling an early breach, the shape of a
+  phone-plan termination fee. Two specific lawyer questions remain:
+  whether it survives Directive 93/13/EEC scrutiny, and how the 14-day
+  distance-contract withdrawal right sits against a 7-day term.
 - **The bottom-up market estimate** (§9), currently tagged
   `[NEEDS SOURCE]`.
 

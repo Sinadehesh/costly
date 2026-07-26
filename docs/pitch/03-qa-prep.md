@@ -45,15 +45,18 @@ positive is free money for you."**
 > dormant, and two of three independent signals agreeing before it counts a
 > single second. No lone signal can charge a card.
 >
-> But I'll be straight with you: the accuracy of the trigger is where my
-> real risk sits, not the revenue direction. Beeminder charges on a discrete
-> event you declared, with a deadline you watched approach. I charge
-> continuously off passive detection. That's a harder consent story and it's
-> the first thing I'd spend program money on.
+> And the structure is the same deposit contract theirs is, with the same
+> kind of clock: every session's 80% sits under a visible 24-hour countdown
+> with a walking progress bar, and the contract itself runs a fixed 7 or 30
+> days that the user picked. The one charge that lands instantly is the 20%
+> burn — that's the piece resting purely on a detection algorithm, and it's
+> where I'd put the accuracy work first. I'm also considering putting a
+> short grace window on the burn so that nothing in the system is instant
+> and unappealable.
 
-That last paragraph is the highest-value thing you can say in this whole
-exchange. It reframes the objection from an ethics question you'd have to
-defend into an engineering question you're already funding.
+Volunteering the narrow version of your own weak spot — *the 20%, not "the
+whole trigger"* — is stronger than a general reassurance and stronger than
+the over-broad concession. It shows you know your system precisely.
 
 ---
 
@@ -75,16 +78,28 @@ defend into an engineering question you're already funding.
 > low for everyone. Age and income gating is a real open question and I'd
 > rather set that policy with advice than guess.
 
-**"What happens when someone's phone dies in a drawer for two days and you
-charge them a deletion fee?"**
+**"You charge people a fee for deleting your app? That can't be legal."**
 
-> Right now that's a real hole and I know exactly where it is. The switch
-> only fires after two consecutive missed 12-hour windows, and session
-> heartbeats count as proof of life — but a dead battery still looks like
-> deletion. Before real cards I'm adding a warning email at around 18
-> hours of silence and a reinstall-to-cure grace window. Charging someone
-> whose phone died is a chargeback machine and it deserves fixing before
-> launch, not after.
+> I'd push back on the framing. We don't impose a fee — we *suggest* a range,
+> the user picks the number themselves, anywhere from zero to a thousand
+> euros, and zero is an allowed choice. Then they sign a fixed-term
+> contract, 7 or 30 days, with that number as the breach fee. Uninstalling
+> mid-term is an early breach of a contract they wrote the price of.
+>
+> That's the same shape as an early-termination fee on a phone plan, a gym
+> contract, or a lease break — well-trodden ground, not a novel penalty.
+> The consent evidence is stored per contract: what they agreed to, the
+> exact terms version, and when.
+
+**"What happens when someone's phone dies in a drawer for two days?"**
+
+> That's the real question, and it's a detection problem rather than a
+> contract problem — a false breach, not an unfair term. Today the switch
+> fires after two consecutive missed 12-hour windows, and session heartbeats
+> count as proof of life, but a dead battery still looks like deletion.
+> Before real cards I'm adding a warning email at around 18 hours of silence
+> and a reinstall-to-cure grace window. Charging someone whose phone died is
+> a chargeback machine and it deserves fixing before launch, not after.
 
 Naming your own unmitigated risk, precisely, is the highest-trust move in
 the meeting. It also pre-empts diligence finding it later.
@@ -97,7 +112,7 @@ the meeting. It also pre-empts diligence finding it later.
 me?"**
 
 > Nothing, mechanically — and that's the honest answer. What exists is the
-> deletion fee you signed for at onboarding, with the consent timestamped.
+> breach fee you set yourself and signed a fixed term against, timestamped.
 > It's the most fragile part of the design and it's the number one thing
 > the alpha exists to measure. If people would rather delete than pay,
 > that's a product-level finding I want in week six.
@@ -135,16 +150,27 @@ tiny. Doesn't that cap your outcome?"**
 
 Expect this immediately after you use the precedent. Have the answer ready.
 
-> Beeminder is deliberately a small bootstrapped business, and it's built
-> for a quantified-self audience willing to define a goal, wire up a data
-> source, and maintain a graph. That setup effort is what keeps it niche —
-> it's a tool for people who already think in metrics.
+> Their ceiling isn't marketing, it's population. A commitment contract
+> requires the user to *construct* one: pick a goal, quantify it, define
+> success, wire up a data source, maintain it. So the market is bounded by
+> people who already have an explicit quantified personal goal and the
+> discipline to model it. That's a small, self-selecting group — which is why
+> fifteen years of a working business model produced a small business.
 >
-> Costly asks for none of that. After onboarding you never declare a goal or
-> log anything; you just open Instagram and the meter runs. The precedent
-> proves the monetization is viable and that app stores and processors
-> tolerate it. It doesn't cap the market, because the friction that kept
-> Beeminder small is exactly the friction I removed.
+> Costly has nothing to construct, because the problem states itself. "I
+> scroll too much" isn't a goal anyone has to define — it's a complaint most
+> smartphone owners volunteer unprompted, with no framework and no metric.
+> After onboarding the user does nothing at all. They open Instagram and the
+> meter runs.
+>
+> The precedent proves the monetization is viable and that app stores and
+> processors tolerate it. It doesn't bound my market, because the setup
+> burden that kept them niche is exactly what I removed.
+
+If they press on the real constraint, concede the right one: it isn't
+goal-definition, it's willingness to put a card down against your own
+behavior. Narrower than "scrolls too much," and it's the first number the
+alpha produces.
 
 **"Why won't Opal or one sec add it in a sprint?"**
 
@@ -221,10 +247,12 @@ pre-seed; pretending otherwise is not.
   it, I'd be raising a seed, not applying to a program.
 - **"Is this legal in the EU?"** → The design never takes custody of user
   money — Stripe holds it, I capture or cancel — so the licensing question
-  I'd otherwise have doesn't arise. The part I genuinely don't know is
-  whether the deletion fee survives EU consumer-law scrutiny; a
-  pre-authorized penalty for uninstalling software is the least-tested term
-  in my contract. First line item in the ask.
+  doesn't arise. The breach fee is a user-priced early-termination term on a
+  fixed contract, which is ordinary ground. What I don't know yet is
+  narrower than "is it legal": whether the term survives unfair-terms
+  scrutiny under 93/13/EEC, and how the 14-day distance-contract withdrawal
+  right sits against a 7-day lock-in. Two questions for a lawyer, first line
+  item in the ask.
 - **"What if the redemption rate is terrible?"** → Then Costly is a
   punishment app and the ratio or the split is wrong, and I'd rather learn
   that in week six than in year two.

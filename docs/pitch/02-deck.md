@@ -88,7 +88,8 @@ ticking. One image, no text.
 
 > 1. State your hourly rate → per-minute penalty
 > 2. Name five things you want
-> 3. Sign a contract — lock-in + deletion fee. Card saved.
+> 3. Sign a fixed 7- or 30-day contract — **you set the breach fee**. Card
+>    saved.
 > 4. Scroll a targeted app → the meter runs
 > 5. Session ends → **20% charged. 80% held for 24 hours.**
 > 6. Walk 2 minutes per scrolled minute, verified → **hold released**
@@ -134,10 +135,10 @@ tool selects for the people who need it least. The difference in my version
 is that a Beeminder derailment is 100% gone and mine is 80% refundable by
 going for a walk.
 
-**If pushed on alignment, the follow-up:** my risk isn't where the money
-goes, it's what triggers the charge — passive detection instead of a
-deadline the user watched. That's an accuracy problem, and it's the first
-thing I'd spend money on.
+**If pushed on alignment, the follow-up:** and it's a deposit contract with
+a clock, same as theirs — every session's 80% sits under a visible 24-hour
+countdown, and the contract itself runs 7 or 30 days. The only instant
+charge is the 20%, which is where I'd focus the accuracy work.
 
 ---
 
@@ -158,15 +159,30 @@ only implementable now.
 
 ### 10 — Market & beachhead
 
-> Digital detox apps: **$498M → $1.38B** by 2032 (15.9% CAGR)
-> Screen-time management software: **$3.8B → $9.7B** by 2034
+> ## Commitment contracts need a goal. Scrolling needs no explanation.
+> Beeminder, stickK: the user must **define** a goal, quantify it, wire up a
+> data source, maintain it. Market bounded by people who think in metrics.
+> Costly: nothing to define. **"I scroll too much"** is already the
+> complaint. You open Instagram and the meter runs.
 >
-> ### First thousand users:
-> **people who already paid for a blocker and relapsed anyway.**
+> Digital detox apps: **$498M → $1.38B** by 2032 · Screen-time software:
+> **$3.8B → $9.7B** by 2034
+> First thousand: **people who already paid for a blocker and relapsed.**
 
-**Say:** Proven willingness to pay, proven dissatisfaction with soft
-friction, and they self-identify in public — competitor App Store reviews
-are full of "I just turn it off." Reachable without paid acquisition.
+**Say:** This is why the fifteen-year precedent doesn't cap me. Their
+ceiling isn't marketing, it's population — you need an explicit quantified
+goal and the discipline to model it, and most people don't have one. Nobody
+needs a framework to know they scroll too much. The setup burden that kept
+them niche is the thing I removed.
+
+For the first thousand: people who already paid for a blocker and relapsed
+anyway. Proven willingness to pay, proven dissatisfaction with soft
+friction, self-identifying in public — competitor reviews are full of "I
+just turn it off."
+
+**If asked what the real constraint is:** willingness to put a card down
+against your own behavior. Narrower than "scrolls too much," and it's the
+first number the alpha produces.
 
 ---
 

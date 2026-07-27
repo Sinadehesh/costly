@@ -33,6 +33,14 @@ const bodySchema = z.object({
   lockinDays: z.union([z.literal(7), z.literal(30)]),
   termsVersion: z.string().min(1),
 
+  // Explicit, separate consent to performance starting inside the statutory
+  // 14-day withdrawal period. Literal true — the schema refuses false rather
+  // than defaulting it, so a client that omits it cannot create a contract
+  // that looks consented-to. This is the mechanism the whole business model
+  // rests on: without it every charge in the first two weeks is reclaimable.
+  withdrawalConsent: z.literal(true),
+  withdrawalTermsVersion: z.string().min(1),
+
   sessionCapCents: z.number().int().positive().max(10000).optional(),
 });
 
@@ -81,6 +89,10 @@ export async function POST(req: Request) {
     lockinEndsAt: new Date(now.getTime() + body.lockinDays * 86_400_000),
     acceptedAt: now,
     termsVersion: body.termsVersion,
+    // Recorded at the same instant but under its own fields — the withdrawal
+    // exception stands or falls on this specific consent, not the general ToS.
+    withdrawalConsentAt: now,
+    withdrawalTermsVersion: body.withdrawalTermsVersion,
   };
   const anchorData = rankedAnchors.map((item, idx) => ({
     tierLevel: idx + 1,

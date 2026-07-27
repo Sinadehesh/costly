@@ -9,6 +9,11 @@ const bodySchema = z.object({
   // Omit to carry the previous fee forward.
   deletionFeeCents: z.number().int().min(0).max(MAX_DELETION_FEE_CENTS).optional(),
   termsVersion: z.string().min(1),
+  // A renewal is a NEW distance contract, so it needs its own express consent
+  // to immediate performance — carrying the old one forward would be evidence
+  // of consent to a contract that no longer exists.
+  withdrawalConsent: z.literal(true),
+  withdrawalTermsVersion: z.string().min(1),
 });
 
 /**
@@ -62,6 +67,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ contractId: st
         lockinEndsAt: new Date(now.getTime() + body.lockinDays * 86_400_000),
         acceptedAt: now,
         termsVersion: body.termsVersion,
+        withdrawalConsentAt: now,
+        withdrawalTermsVersion: body.withdrawalTermsVersion,
       },
     }),
   ]);

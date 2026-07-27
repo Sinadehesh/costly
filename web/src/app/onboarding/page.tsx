@@ -25,6 +25,17 @@ interface WishOption {
 
 const CUSTOM = '__custom__';
 
+/** General ToS version stamped on the contract. */
+const TERMS_VERSION = '2026-07-v2-arcade';
+
+/**
+ * Version of the withdrawal-right consent wording specifically. Tracked apart
+ * from TERMS_VERSION because the statutory exception depends on THIS text
+ * having been shown and agreed to — bump it whenever the wording changes, and
+ * never reuse a version for different words.
+ */
+const WITHDRAWAL_TERMS_VERSION = '2026-07-withdrawal-v1';
+
 const WISH_CATALOGUE: { group: string; items: WishOption[] }[] = [
   {
     group: 'Small stuff (€5–€30)',
@@ -99,6 +110,9 @@ export default function OnboardingPage() {
   // Step 3
   const [lockinDays, setLockinDays] = useState<7 | 30>(7);
   const [feeEuros, setFeeEuros] = useState(100);
+  // Must be an explicit, un-prechecked action — a pre-ticked box is not
+  // express consent, and this one is the reason the charges stand up.
+  const [withdrawalConsent, setWithdrawalConsent] = useState(false);
   // Step 4
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -138,7 +152,9 @@ export default function OnboardingPage() {
           anchorItems: filledWishes, // may legitimately be []
           deletionFeeCents: Math.round(feeEuros * 100),
           lockinDays,
-          termsVersion: '2026-07-v2-arcade',
+          termsVersion: TERMS_VERSION,
+          withdrawalConsent,
+          withdrawalTermsVersion: WITHDRAWAL_TERMS_VERSION,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? 'onboarding_failed');
@@ -415,7 +431,7 @@ export default function OnboardingPage() {
 
             <div className="mt-5 rounded-lg border-2 border-gray-800 bg-zinc-950 p-4">
               <p className="font-mono text-[10px] tracking-widest text-emerald-400">
-                TERMS · 2026-07-v2-arcade
+                TERMS · {TERMS_VERSION}
               </p>
               <ul className="mt-2 space-y-1 font-mono text-xs leading-relaxed text-zinc-400">
                 <li>&gt; scroll: {eurosExact(perMinuteCents)}/min · 20% kept · 80% walkable 2:1, 24h</li>
@@ -426,17 +442,40 @@ export default function OnboardingPage() {
                 </li>
               </ul>
             </div>
+
+            {/* Express consent to immediate performance during the statutory
+                14-day withdrawal period. Kept visually plain and legible —
+                this one is not a joke, and burying it in arcade styling would
+                undermine the very thing it exists to establish. */}
+            <label className="mt-5 flex cursor-pointer gap-3 rounded-lg border-2 border-zinc-700 bg-zinc-950 p-4">
+              <input
+                type="checkbox"
+                checked={withdrawalConsent}
+                onChange={(e) => setWithdrawalConsent(e.target.checked)}
+                className="mt-0.5 h-5 w-5 shrink-0 accent-emerald-500"
+              />
+              <span className="text-xs leading-relaxed text-zinc-300">
+                I ask Costly to <strong className="text-white">start immediately</strong>, during
+                the 14-day withdrawal period, and I understand that I{' '}
+                <strong className="text-white">lose my right to withdraw</strong> once the service
+                has been fully performed. Metering, charges and the deletion fee can therefore
+                apply from today rather than after 14 days.
+              </span>
+            </label>
+            <p className="mt-2 font-mono text-[10px] leading-relaxed text-zinc-600">
+              consent · {WITHDRAWAL_TERMS_VERSION}
+            </p>
           </div>
           <div className="flex gap-3">
             <button onClick={() => setStep(2)} className={backClass}>
               BACK
             </button>
             <button
-              disabled={busy}
+              disabled={busy || !withdrawalConsent}
               onClick={submitAndVault}
               className="flex-1 rounded-xl border-4 border-gray-800 bg-red-500 px-6 py-4 font-extrabold text-zinc-950 transition enabled:hover:brightness-110 disabled:opacity-50"
             >
-              {busy ? 'FILING…' : 'SIGN IT'}
+              {busy ? 'FILING…' : withdrawalConsent ? 'SIGN IT' : 'TICK THE BOX FIRST'}
             </button>
           </div>
         </section>

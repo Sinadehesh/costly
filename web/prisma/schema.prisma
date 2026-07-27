@@ -206,6 +206,19 @@ model CommitmentContract {
   acceptedAt   DateTime
   termsVersion String
 
+  // SEPARATE, EXPLICIT consent to performance beginning immediately during
+  // the statutory 14-day withdrawal period, plus acknowledgement that the
+  // right of withdrawal is lost once the service is fully performed
+  // (EU Consumer Rights Directive 2011/83/EU art. 16(a), and equivalents).
+  //
+  // Deliberately NOT folded into acceptedAt/termsVersion: the exception only
+  // applies where this specific request and acknowledgement were given, so it
+  // needs its own timestamp and its own version to be evidence of anything.
+  // Without it, a user can withdraw within 14 days and reclaim charges — which
+  // is every charge this product makes in its first two weeks.
+  withdrawalConsentAt      DateTime?
+  withdrawalTermsVersion   String?
+
   status ContractStatus @default(ACTIVE)
 
   breachedAt                   DateTime?

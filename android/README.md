@@ -204,16 +204,26 @@ Reach the dev server one of two ways:
 ## Device auth
 
 Every request carries an `x-device-secret` header (`net/Network.kt`
-interceptor) whose value is the `DEVICE_API_SECRET` build config field,
-sourced from the `costlyDeviceApiSecret` Gradle property (set it in
-`~/.gradle/gradle.properties` or pass `-PcostlyDeviceApiSecret=…`; defaults
-to `change-me`, matching `web/.env.example`). The backend routes still carry
-`TODO(auth)` and don't verify it yet — the header is forward-compatible: it
-must match the web `DEVICE_API_SECRET` env var the moment those checks land.
+interceptor) whose value is a **per-device secret issued at runtime** — there
+is no build-time shared secret (the old `DEVICE_API_SECRET` /
+`costlyDeviceApiSecret` Gradle property is retired).
+
+The flow:
+
+1. The web dashboard shows a one-time OTP.
+2. The user types it into the arming screen; `net/DeviceLinker` POSTs it to
+   `/api/device/link` (the only call that carries no secret — the OTP in the
+   body authorizes it).
+3. The server returns `{deviceSecret, userId}`, stored in `Prefs` and held in
+   `Network.deviceSecret`; the server keeps only a SHA-256 hash.
+4. Every subsequent request sends that secret, and the backend's
+   `requireDevice()` wrapper resolves it to the user — **the device never
+   sends a `userId`**, so one device can't bill another user's card.
+
+Backend enforcement is live (`web/src/lib/deviceAuth.ts`); a request with a
+missing, unknown, or revoked secret gets a 401.
 
 ## Not wired yet
 
-- Backend enforcement of the `x-device-secret` header — the app already
-  sends it; the Next.js routes still `TODO(auth)` the verification.
 - Tap-to-expand on the bubble (session window remaining + "End session"
   button) — `performClick` is already routed; the expanded content is TODO.

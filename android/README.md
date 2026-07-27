@@ -149,13 +149,49 @@ backend takes `max()`, so replays are harmless).
 ```bash
 # from android/
 ./gradlew :app:assembleDebug            # needs Android SDK + JDK 17
+./gradlew :app:testDebugUnitTest        # pure-JVM tests, no device needed
 adb install app/build/outputs/apk/debug/app-debug.apk
 adb reverse tcp:3000 tcp:3000           # or set API_BASE_URL to your LAN/deploy
 ```
 
-`API_BASE_URL` is a `buildConfigField` in `app/build.gradle.kts` — debug
-defaults to `http://10.0.2.2:3000/` (emulator → host). Set the release
-URL before shipping an APK.
+### Build configuration (injected, not hardcoded)
+
+`API_BASE_URL` and the signing key come from Gradle properties, so no
+deployment URL or keystore password lives in the repo. Set them in
+`~/.gradle/gradle.properties` (or pass `-P…` on the command line):
+
+```properties
+# Where the companion talks to the API. Trailing slash required.
+costlyDebugApiBaseUrl=http://10.0.2.2:3000/          # optional; this is the default
+costlyReleaseApiBaseUrl=https://your-deployment.example.com/
+
+# Release signing. Omit ALL FOUR to fall back to the debug keystore.
+costlyKeystorePath=/absolute/path/to/upload-keystore.jks
+costlyKeystorePassword=…
+costlyKeyAlias=upload
+costlyKeyPassword=…
+```
+
+Two deliberate behaviours:
+
+- **A release build with no `costlyReleaseApiBaseUrl` fails at configure
+  time.** It used to hardcode `https://YOUR-DEPLOYMENT.vercel.app/`, which
+  produced an APK that installed, ran, and silently failed every network call.
+  A loud build failure beats a quietly broken app.
+- **A release build with no keystore is debug-signed, with a warning.** That's
+  fine for sideloading and correct for today, but Play rejects debug-signed
+  uploads — set the four `costlyKeystore*` properties to sign with a real
+  upload key. The point is that this is now a visible choice rather than AGP
+  silently leaving the release unsigned.
+
+### Unit tests
+
+`app/src/test/` holds pure-JVM tests (JUnit 4) for the two modules that decide
+money: `DoomscrollDetector` (swipe-signature pattern match, dormancy timeout,
+and the negative cases — walking, shaking, off-axis rotation must never bill)
+and `MeterMath` (display seconds, cent rounding that matches the server,
+hostage-ladder escalation). They need no device or emulator and run in CI on
+every push.
 
 ## The live meter overlay
 

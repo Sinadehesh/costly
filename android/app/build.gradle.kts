@@ -77,4 +77,9 @@ dependencies {
     implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    // Local JVM unit tests for the pure logic (DoomscrollDetector, MeterMath).
+    // Run on the host via `./gradlew :app:testDebugUnitTest` — no device, no
+    // emulator, so they're cheap enough to run on every change.
+    testImplementation("junit:junit:4.13.2")
 }

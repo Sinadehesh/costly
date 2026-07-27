@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { requireSession } from '@/lib/jwt';
 import { stripe } from '@/lib/stripe';
-
-const bodySchema = z.object({ userId: z.string() });
 
 /**
  * POST /api/stripe/setup-intent
@@ -15,9 +13,16 @@ const bodySchema = z.object({ userId: z.string() });
  *
  * The saved payment method id is written back to User by the webhook
  * handler on setup_intent.succeeded.
+ *
+ * The user comes from the session cookie (set by /api/onboarding), never from
+ * the body — a userId in the body let anyone vault a card against another
+ * account's Stripe customer.
  */
 export async function POST(req: Request) {
-  const { userId } = bodySchema.parse(await req.json());
+  const userId = await requireSession(req);
+  if (!userId) {
+    return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  }
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
 
   const setupIntent = await stripe.setupIntents.create({

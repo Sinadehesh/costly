@@ -131,15 +131,18 @@ export default function DashboardPage() {
   const clock = useTickingClock();
 
   useEffect(() => {
-    const userId = window.localStorage.getItem('costly:userId');
-    if (!userId) {
-      setError('no_user');
-      return;
-    }
-    fetch(`/api/dashboard?userId=${encodeURIComponent(userId)}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('load_failed'))))
+    // The session cookie is the credential — it rides along automatically.
+    // localStorage['costly:userId'] is kept only as a UI hint (have we ever
+    // onboarded?); the server does not trust it for anything.
+    const onboarded = window.localStorage.getItem('costly:userId');
+    fetch('/api/dashboard')
+      .then((r) => {
+        if (r.status === 401) throw new Error(onboarded ? 'signed_out' : 'no_user');
+        if (!r.ok) throw new Error('load_failed');
+        return r.json();
+      })
       .then(setData)
-      .catch(() => setError('load_failed'));
+      .catch((e: Error) => setError(e.message));
   }, []);
 
   if (error === 'no_user') {
@@ -153,6 +156,21 @@ export default function DashboardPage() {
           className="rounded-xl border-4 border-gray-800 bg-emerald-500 px-6 py-3 font-extrabold text-zinc-950"
         >
           FEED THE MACHINE
+        </Link>
+      </main>
+    );
+  }
+  if (error === 'signed_out') {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-5 bg-zinc-950 px-6">
+        <p className="text-center text-zinc-400">
+          Your session expired. The debts did not. Sign back in to look at them.
+        </p>
+        <Link
+          href="/onboarding"
+          className="rounded-xl border-4 border-gray-800 bg-emerald-500 px-6 py-3 font-extrabold text-zinc-950"
+        >
+          SIGN BACK IN
         </Link>
       </main>
     );

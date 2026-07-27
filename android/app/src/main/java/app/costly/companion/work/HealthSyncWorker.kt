@@ -58,8 +58,9 @@ class HealthSyncWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val userId = Prefs.userId(applicationContext)
-            ?: return Result.success() // unarmed — nothing to prove, nobody to punish
+        // Unarmed — nothing to prove, nobody to punish. (The userId itself is no
+        // longer sent anywhere; x-device-secret identifies us to the server.)
+        if (Prefs.userId(applicationContext) == null) return Result.success()
 
         if (HealthConnectClient.getSdkStatus(applicationContext) != HealthConnectClient.SDK_AVAILABLE) {
             Log.e(TAG, "Health Connect unavailable on this device — the system is blind to laziness")
@@ -91,7 +92,7 @@ class HealthSyncWorker(context: Context, params: WorkerParameters) :
 
         // ── FRONT B: redemption sync (existing hold-release path) ─────────
         val pending = try {
-            Network.api.dashboard(userId).holds
+            Network.api.dashboard().holds
                 .filter { it.redemption?.status == "PENDING" }
         } catch (e: IOException) {
             return Result.retry()

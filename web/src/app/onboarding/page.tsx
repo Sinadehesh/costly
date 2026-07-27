@@ -144,11 +144,9 @@ export default function OnboardingPage() {
       if (!res.ok) throw new Error((await res.json()).error ?? 'onboarding_failed');
       const { userId: newUserId } = await res.json();
 
-      const siRes = await fetch('/api/stripe/setup-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: newUserId }),
-      });
+      // No userId in the body — /api/onboarding just set the session cookie,
+      // and the server resolves the user from it.
+      const siRes = await fetch('/api/stripe/setup-intent', { method: 'POST' });
       if (!siRes.ok) throw new Error('setup_intent_failed');
       const { clientSecret: secret } = await siRes.json();
 
@@ -469,7 +467,7 @@ export default function OnboardingPage() {
                   },
                 }}
               >
-                <VaultCardForm userId={userId} onDone={() => router.push('/dashboard')} />
+                <VaultCardForm onDone={() => router.push('/dashboard')} />
               </Elements>
             </div>
           </div>
@@ -479,7 +477,7 @@ export default function OnboardingPage() {
   );
 }
 
-function VaultCardForm({ userId, onDone }: { userId: string; onDone: () => void }) {
+function VaultCardForm({ onDone }: { onDone: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const [busy, setBusy] = useState(false);
@@ -507,7 +505,7 @@ function VaultCardForm({ userId, onDone }: { userId: string; onDone: () => void 
     await fetch('/api/stripe/setup-complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, setupIntentId: setupIntent?.id }),
+      body: JSON.stringify({ setupIntentId: setupIntent?.id }),
     });
 
     onDone();

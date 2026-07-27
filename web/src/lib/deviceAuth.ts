@@ -61,3 +61,22 @@ export async function requireDevice(req: Request): Promise<DeviceAuth | NextResp
 
   return { deviceId: device.id, userId: device.userId };
 }
+
+/**
+ * Resolve the acting user from EITHER trust path, for endpoints legitimately
+ * used by both the browser and the companion app (currently /api/dashboard:
+ * the web renders it, and Android's HealthSyncWorker reads it to discover its
+ * pending redemption taskId).
+ *
+ * Device secret wins when present, since that's the app's only credential.
+ * Returns null when neither path authenticates — callers must NOT fall back
+ * to a userId from the query string.
+ */
+export async function resolveUserId(req: Request): Promise<string | null> {
+  if (req.headers.get('x-device-secret')) {
+    const auth = await requireDevice(req);
+    return auth instanceof NextResponse ? null : auth.userId;
+  }
+  const { requireSession } = await import('@/lib/jwt');
+  return requireSession(req);
+}

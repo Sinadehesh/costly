@@ -72,6 +72,12 @@ model User {
   // contract's lock-in as deletion/permission-revocation → breach charge.
   lastHeartbeatAt DateTime?
 
+  // Grace rail 1 — the warning. A dead battery is indistinguishable from a
+  // deletion here, so the user is warned at 18h of silence, before the 24h
+  // threshold. Cleared on every ping so it re-arms per episode of silence
+  // rather than firing once per lifetime.
+  heartbeatWarningSentAt DateTime?
+
   // ── Stripe ─────────────────────────────────────────────────────────────
   stripeCustomerId      String? @unique
   stripePaymentMethodId String? // saved via SetupIntent; required for off-session charges
@@ -204,6 +210,13 @@ model CommitmentContract {
 
   breachedAt                   DateTime?
   stripeBreachPaymentIntentId  String?   @unique
+
+  // Grace rail 2 — reinstall-to-cure. Crossing 24h of silence no longer
+  // charges immediately; it marks the breach PENDING here. The charge only
+  // lands if the silence persists past the grace window. Any ping in the
+  // meantime clears this and the contract carries on — the phone was just
+  // flat, not deleted.
+  breachPendingSince DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

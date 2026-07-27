@@ -18,6 +18,18 @@ export const DEVICE_HEARTBEAT_HOURS = 12;
 /** 2 consecutive missed pings ⇒ the dead man's switch fires. */
 export const BREACH_AFTER_HOURS = 2 * DEVICE_HEARTBEAT_HOURS;
 
+/** Warn the user this far into the silence, before the switch fires. */
+export const HEARTBEAT_WARNING_AFTER_HOURS = 18;
+
+/**
+ * Reinstall-to-cure. After the 24h threshold the breach is only PENDING; the
+ * charge lands this many hours later, and any ping in between cancels it.
+ * A dead battery, a holiday without a charger, or a week in airplane mode
+ * looks identical to deletion from the server's side — this is the difference
+ * between a fair charge and a chargeback.
+ */
+export const BREACH_GRACE_HOURS = 12;
+
 /** Deletion fee bounds: €0 (allowed, discouraged) … €1000. */
 export const MAX_DELETION_FEE_CENTS = 100_000;
 
@@ -83,4 +95,38 @@ export function newlyCrossedTiers(
 export function isHeartbeatBreached(lastHeartbeatAt: Date | null, now: Date): boolean {
   if (!lastHeartbeatAt) return false; // never armed — no ping baseline yet
   return now.getTime() - lastHeartbeatAt.getTime() > BREACH_AFTER_HOURS * 3600_000;
+}
+
+/**
+ * True in the warning band: silent long enough to warn, but not yet breached.
+ * Deliberately excludes the already-breached case — past 24h the user gets the
+ * breach path, not a "you're about to be charged" note.
+ */
+export function isHeartbeatWarning(lastHeartbeatAt: Date | null, now: Date): boolean {
+  if (!lastHeartbeatAt) return false;
+  const silentMs = now.getTime() - lastHeartbeatAt.getTime();
+  return (
+    silentMs >= HEARTBEAT_WARNING_AFTER_HOURS * 3600_000 &&
+    silentMs <= BREACH_AFTER_HOURS * 3600_000
+  );
+}
+
+/**
+ * Has a pending breach outlived its grace window? Only then does the card get
+ * charged. `pendingSince` is when the sweep first saw the 24h threshold crossed.
+ */
+export function isGraceExpired(pendingSince: Date, now: Date): boolean {
+  return now.getTime() - pendingSince.getTime() >= BREACH_GRACE_HOURS * 3600_000;
+}
+
+/**
+ * Did the device come back after the breach was marked pending? A ping strictly
+ * newer than the pending marker means the app is alive — the switch stands down.
+ */
+export function isBreachCured(
+  lastHeartbeatAt: Date | null,
+  pendingSince: Date,
+): boolean {
+  if (!lastHeartbeatAt) return false;
+  return lastHeartbeatAt.getTime() > pendingSince.getTime();
 }

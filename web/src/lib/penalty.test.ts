@@ -3,12 +3,17 @@ import { describe, expect, it } from 'vitest';
 import {
   ANCHOR_TIER_COUNT,
   BREACH_AFTER_HOURS,
+  BREACH_GRACE_HOURS,
   BURN_SHARE,
+  HEARTBEAT_WARNING_AFTER_HOURS,
   MAX_DELETION_FEE_CENTS,
   REDEMPTION_WINDOW_HOURS,
   SWEAT_RATIO,
   anchorPercent,
+  isBreachCured,
+  isGraceExpired,
   isHeartbeatBreached,
+  isHeartbeatWarning,
   newlyCrossedTiers,
   perMinuteRateCents,
   requiredWalkingMinutes,
@@ -236,6 +241,91 @@ describe('isHeartbeatBreached', () => {
 
   it('is not breached when the clock skews and the last ping is in the future', () => {
     expect(isHeartbeatBreached(new Date(now.getTime() + 3600_000), now)).toBe(false);
+  });
+});
+
+describe('isHeartbeatWarning', () => {
+  const now = new Date('2026-01-10T12:00:00Z');
+  const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600_000);
+
+  it('does not warn a device that has never pinged', () => {
+    expect(isHeartbeatWarning(null, now)).toBe(false);
+  });
+
+  it('does not warn before the 18h mark', () => {
+    expect(isHeartbeatWarning(hoursAgo(17.9), now)).toBe(false);
+  });
+
+  it('warns from 18h up to the breach threshold', () => {
+    expect(isHeartbeatWarning(hoursAgo(HEARTBEAT_WARNING_AFTER_HOURS), now)).toBe(true);
+    expect(isHeartbeatWarning(hoursAgo(20), now)).toBe(true);
+    expect(isHeartbeatWarning(hoursAgo(BREACH_AFTER_HOURS), now)).toBe(true);
+  });
+
+  it('stops warning once breached — past 24h it is the breach path, not a warning', () => {
+    expect(isHeartbeatWarning(hoursAgo(BREACH_AFTER_HOURS + 1), now)).toBe(false);
+  });
+
+  it('never overlaps with isHeartbeatBreached', () => {
+    // The two states must be mutually exclusive at every hour, or a user could
+    // be warned and charged in the same sweep.
+    for (let h = 0; h <= 48; h += 0.5) {
+      const last = hoursAgo(h);
+      expect(isHeartbeatWarning(last, now) && isHeartbeatBreached(last, now)).toBe(false);
+    }
+  });
+});
+
+describe('isGraceExpired', () => {
+  const pending = new Date('2026-01-10T00:00:00Z');
+  const plus = (h: number) => new Date(pending.getTime() + h * 3600_000);
+
+  it('is not expired immediately', () => {
+    expect(isGraceExpired(pending, pending)).toBe(false);
+  });
+
+  it('is not expired part-way through the window', () => {
+    expect(isGraceExpired(pending, plus(BREACH_GRACE_HOURS - 0.1))).toBe(false);
+  });
+
+  it('is expired at exactly the window and beyond', () => {
+    expect(isGraceExpired(pending, plus(BREACH_GRACE_HOURS))).toBe(true);
+    expect(isGraceExpired(pending, plus(100))).toBe(true);
+  });
+});
+
+describe('isBreachCured', () => {
+  const pending = new Date('2026-01-10T00:00:00Z');
+
+  it('is not cured with no heartbeat at all', () => {
+    expect(isBreachCured(null, pending)).toBe(false);
+  });
+
+  it('is not cured by the stale ping that caused the breach', () => {
+    expect(isBreachCured(new Date(pending.getTime() - 3600_000), pending)).toBe(false);
+  });
+
+  it('is not cured by a ping exactly at the pending marker', () => {
+    expect(isBreachCured(pending, pending)).toBe(false);
+  });
+
+  it('is cured by any ping after the marker — the app came back', () => {
+    expect(isBreachCured(new Date(pending.getTime() + 1), pending)).toBe(true);
+    expect(isBreachCured(new Date(pending.getTime() + 6 * 3600_000), pending)).toBe(true);
+  });
+});
+
+describe('grace rail timing as a whole', () => {
+  it('gives the user strictly more time than the bare threshold', () => {
+    // The whole point: nobody is charged at the 24h mark any more.
+    expect(BREACH_GRACE_HOURS).toBeGreaterThan(0);
+    expect(HEARTBEAT_WARNING_AFTER_HOURS).toBeLessThan(BREACH_AFTER_HOURS);
+  });
+
+  it('warns before the switch fires, leaving time to act', () => {
+    const warnHoursBeforeCharge =
+      BREACH_AFTER_HOURS + BREACH_GRACE_HOURS - HEARTBEAT_WARNING_AFTER_HOURS;
+    expect(warnHoursBeforeCharge).toBeGreaterThanOrEqual(12);
   });
 });
 

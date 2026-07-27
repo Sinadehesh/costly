@@ -90,15 +90,27 @@
   cards, since a false positive bills a user for a wobble (bounded by
   the per-session cap). `specialUse` foreground services still draw
   Play review.
-- **Dead-man's-switch false positives.** A dead battery, a week
-  offline, or Android's Doze killing WorkManager looks identical to
-  deletion from the server's side. Mitigations built in: the app pings
-  opportunistically (launch + every session event, not just the 12h
-  worker), session heartbeats count as proof of life, and the switch
-  only arms after the first ping. Recommended before real users:
-  a warning email at ~18h of silence and a short reinstall-to-cure
-  window — charging a user whose phone died in a drawer is a
-  chargeback machine.
+- **Dead-man's-switch false positives** (grace rails now built). A dead
+  battery, a week offline, or Android's Doze killing WorkManager looks
+  identical to deletion from the server's side. Mitigations: the app
+  pings opportunistically (launch + every session event, not just the
+  12h worker), session heartbeats count as proof of life, and the
+  switch only arms after the first ping. On top of that the sweep is
+  now two-stage:
+  - **18h — warning.** `isHeartbeatWarning` puts the user in a warning
+    band before the threshold and emails them once per episode of
+    silence (`User.heartbeatWarningSentAt`, cleared on every ping). The
+    warning is only recorded as sent if it actually went out, so an
+    unconfigured provider retries instead of silently swallowing it.
+  - **24h — pending, not charged.** Crossing the threshold sets
+    `CommitmentContract.breachPendingSince` and charges nothing.
+  - **+12h grace — cure or charge.** Any ping newer than the pending
+    marker cancels the breach (`isBreachCured`); only continued silence
+    past `BREACH_GRACE_HOURS` charges the fee.
+
+  Net effect: a user gets a warning 18h in and has ~18h more to open
+  the app before any money moves. Requires `NOTIFY_WEBHOOK_URL` to be
+  configured — see `web/.env.example`.
 
 ## Data model
 

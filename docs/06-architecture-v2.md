@@ -29,10 +29,14 @@
    of an anchor item, the device fires a hostile notification/overlay:
    *"Thank you for buying us [Product Name]."* Each tier fires exactly
    once per session (`Session.lastTauntTier`).
-4. **Vice meter + idle detection** — AccessibilityService watches
-   `TYPE_VIEW_SCROLLED`; 60s without a scroll pauses the timer (no
-   charging sleepers). Hard cap per session (default €30) terminates
-   the session — no catastrophic chargebacks.
+4. **Vice meter + idle detection** — no AccessibilityService. The meter
+   ticks only when the hard gates hold (screen on via
+   `PowerManager.isInteractive`, target app in the foreground, phone not
+   dormant) AND at least 2 of 3 engagement signals agree (network burst
+   on the target app's UID, gyroscope swipe rhythm, media audio). 30s+
+   of near-zero motion marks the phone dormant and pauses the timer (no
+   charging sleepers). Hard cap per session (default €30) freezes
+   billing — no catastrophic chargebacks.
 5. **20/80 split** — session ends → 20% permanently captured ("the
    burn"), 80% held in purgatory for 24h.
 6. **Sweat equity, 2:1** — every scroll-minute owes 2 verified walking

@@ -46,6 +46,76 @@ interface DashboardData {
   lifetimeLostCents: number;
 }
 
+/**
+ * The pairing code. Without this the Android companion can never link, so
+ * nothing tracks and nothing bills — it's the bridge between the web account
+ * and the device. POSTs to /api/device/link/otp (JWT-authed) and shows the
+ * short-lived 6-digit code for the user to type into the arming screen.
+ */
+function PairingCode() {
+  const [otp, setOtp] = useState<string | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
+
+  useEffect(() => {
+    if (secondsLeft <= 0) return;
+    const id = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [secondsLeft]);
+
+  // The code is dead once it expires — stop showing a number that won't work.
+  useEffect(() => {
+    if (otp && secondsLeft === 0) setOtp(null);
+  }, [otp, secondsLeft]);
+
+  async function generate() {
+    setState('loading');
+    try {
+      const res = await fetch('/api/device/link/otp', { method: 'POST' });
+      if (!res.ok) throw new Error('otp_failed');
+      const body = (await res.json()) as { otp: string; expiresInSeconds: number };
+      setOtp(body.otp);
+      setSecondsLeft(body.expiresInSeconds);
+      setState('idle');
+    } catch {
+      setState('error');
+    }
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border-2 border-gray-800 bg-black p-3">
+      {otp ? (
+        <>
+          <p className="font-mono text-[10px] tracking-widest text-zinc-500">
+            PAIRING CODE — TYPE THIS INTO THE APP
+          </p>
+          <p className="mt-1 font-mono text-3xl font-bold tracking-[0.3em] tabular-nums text-emerald-400">
+            {otp}
+          </p>
+          <p className="mt-1 font-mono text-[10px] tabular-nums text-zinc-600">
+            expires in {Math.floor(secondsLeft / 60)}:
+            {String(secondsLeft % 60).padStart(2, '0')}
+          </p>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={generate}
+          disabled={state === 'loading'}
+          className="w-full rounded-md border-2 border-emerald-500 bg-zinc-950 px-3 py-2 font-mono text-xs font-bold text-emerald-400 disabled:opacity-50"
+        >
+          {state === 'loading' ? 'GENERATING…' : '> Generate pairing code_'}
+        </button>
+      )}
+      {state === 'error' && (
+        <p className="mt-2 font-mono text-[10px] text-red-500">
+          Could not generate a code. Are you signed in?
+        </p>
+      )}
+    </div>
+  );
+}
+
 function useTickingClock(): string {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -163,8 +233,10 @@ export default function DashboardPage() {
               waiting.
             </p>
             {/* The Android companion is the single source of truth for BOTH
-                tracking fronts: Accessibility (scrolling) + Health Connect
-                (steps). The web only listens for its pings. */}
+                tracking fronts: Usage Access (which app is in the foreground,
+                feeding the heuristic scroll engine) + Health Connect (steps).
+                No AccessibilityService — Play restricts it to accessibility
+                uses. The web only listens for the companion's pings. */}
             <div className="mt-4 flex items-center gap-4 rounded-lg border-2 border-emerald-500 bg-zinc-950 p-4">
               <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border-2 border-dashed border-zinc-600 font-mono text-[10px] text-zinc-500">
                 QR / APK
@@ -174,12 +246,13 @@ export default function DashboardPage() {
                   &gt; Install Companion App._
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-                  Download the Android APK. Grant Accessibility (to track
-                  scrolling) AND Health Connect (to track steps) to arm the
-                  system.
+                  Download the Android APK. Grant Usage Access (to catch the
+                  scrolling) AND Health Connect (to track steps), then pair the
+                  device with the code below to arm the system.
                 </p>
               </div>
             </div>
+            <PairingCode />
           </section>
         )}
 

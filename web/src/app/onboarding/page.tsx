@@ -11,9 +11,69 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
 const WISH_HINTS = ['PlayStation 5', 'AirPods', 'A nice dinner', 'A hardcover book', 'Concert tickets'];
 
+/**
+ * Pickable wishes with a typical price. Choosing one fills in BOTH the name
+ * and the price, so a working hostage ladder takes five taps and no typing —
+ * the field used to be two blank boxes per row, which is why nobody filled it
+ * in. Prices stay editable after picking, and "Something else…" keeps the
+ * free-text path for anything not on the list.
+ */
+interface WishOption {
+  name: string;
+  priceEuros: number;
+}
+
+const CUSTOM = '__custom__';
+
+const WISH_CATALOGUE: { group: string; items: WishOption[] }[] = [
+  {
+    group: 'Small stuff (€5–€30)',
+    items: [
+      { name: 'A fancy coffee', priceEuros: 5 },
+      { name: 'A cinema ticket', priceEuros: 13 },
+      { name: 'Lunch out', priceEuros: 15 },
+      { name: 'A hardcover book', priceEuros: 25 },
+      { name: 'A month of streaming', priceEuros: 30 },
+    ],
+  },
+  {
+    group: 'Nights out (€50–€150)',
+    items: [
+      { name: 'A nice dinner', priceEuros: 80 },
+      { name: 'Concert tickets', priceEuros: 90 },
+      { name: 'A month at the gym', priceEuros: 50 },
+      { name: 'A good pair of jeans', priceEuros: 120 },
+      { name: 'A weekend train trip', priceEuros: 150 },
+    ],
+  },
+  {
+    group: 'Real money (€200–€600)',
+    items: [
+      { name: 'AirPods', priceEuros: 250 },
+      { name: 'A mechanical keyboard', priceEuros: 200 },
+      { name: 'A PlayStation 5', priceEuros: 500 },
+      { name: 'A flight home', priceEuros: 400 },
+      { name: 'A new phone', priceEuros: 600 },
+    ],
+  },
+  {
+    group: 'The big ones (€1000+)',
+    items: [
+      { name: 'A laptop', priceEuros: 1200 },
+      { name: 'A holiday abroad', priceEuros: 1500 },
+      { name: 'A used car', priceEuros: 4000 },
+      { name: 'Rent for a month', priceEuros: 1000 },
+    ],
+  },
+];
+
+const ALL_WISH_NAMES = WISH_CATALOGUE.flatMap((g) => g.items.map((i) => i.name));
+
 interface WishDraft {
   name: string;
   priceEuros: string;
+  /** True once the user picks "Something else…" — reveals the text input. */
+  custom: boolean;
 }
 
 const inputClass =
@@ -34,7 +94,7 @@ export default function OnboardingPage() {
   const [hourlyEuros, setHourlyEuros] = useState('');
   // Step 2 — COMPLETELY OPTIONAL. Blank rows are a supported, first-class state.
   const [wishes, setWishes] = useState<WishDraft[]>(
-    WISH_HINTS.map(() => ({ name: '', priceEuros: '' })),
+    WISH_HINTS.map(() => ({ name: '', priceEuros: '', custom: false })),
   );
   // Step 3
   const [lockinDays, setLockinDays] = useState<7 | 30>(7);
@@ -189,36 +249,94 @@ export default function OnboardingPage() {
               What are you saving for? <span className="text-zinc-500">(optional)</span>
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-              Name up to 5 things you actually want. If you do, the cat will
-              taunt you with them by name when you burn money. If you skip
-              this, it will simply brag about the garbage it bought instead.
-              Both are valid lives.
+              Pick up to 5 things you actually want — prices are filled in for
+              you and stay editable, and &ldquo;Something else…&rdquo; lets you
+              name your own. If you do, the cat will taunt you with them by
+              name when you burn money. If you skip this, it will simply brag
+              about the garbage it bought instead. Both are valid lives.
             </p>
             <div className="mt-4 space-y-3">
-              {wishes.map((w, i) => (
-                <div key={i} className="flex gap-2">
-                  <input
-                    value={w.name}
-                    onChange={(e) =>
-                      setWishes(wishes.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
-                    }
-                    placeholder={WISH_HINTS[i]}
-                    className={`${inputClass} flex-1`}
-                  />
-                  <input
-                    type="number"
-                    min="1"
-                    value={w.priceEuros}
-                    onChange={(e) =>
-                      setWishes(
-                        wishes.map((x, j) => (j === i ? { ...x, priceEuros: e.target.value } : x)),
-                      )
-                    }
-                    placeholder="€"
-                    className={`${inputClass} w-24 font-mono tabular-nums`}
-                  />
-                </div>
-              ))}
+              {wishes.map((w, i) => {
+                // Don't offer a wish already taken by another row — five
+                // identical hostages is not a ladder.
+                const takenElsewhere = new Set(
+                  wishes.filter((_, j) => j !== i).map((x) => (x.custom ? '' : x.name)),
+                );
+                const selectValue = w.custom ? CUSTOM : ALL_WISH_NAMES.includes(w.name) ? w.name : '';
+
+                return (
+                  <div key={i} className="space-y-2">
+                    <div className="flex gap-2">
+                      <select
+                        value={selectValue}
+                        onChange={(e) => {
+                          const picked = e.target.value;
+                          setWishes(
+                            wishes.map((x, j) => {
+                              if (j !== i) return x;
+                              if (picked === '') return { name: '', priceEuros: '', custom: false };
+                              if (picked === CUSTOM)
+                                return { name: '', priceEuros: '', custom: true };
+                              const opt = WISH_CATALOGUE.flatMap((g) => g.items).find(
+                                (o) => o.name === picked,
+                              );
+                              return {
+                                name: picked,
+                                priceEuros: opt ? String(opt.priceEuros) : '',
+                                custom: false,
+                              };
+                            }),
+                          );
+                        }}
+                        className={`${inputClass} flex-1 appearance-none`}
+                      >
+                        <option value="">— nothing in slot {i + 1} —</option>
+                        {WISH_CATALOGUE.map((group) => (
+                          <optgroup key={group.group} label={group.group}>
+                            {group.items.map((opt) => (
+                              <option
+                                key={opt.name}
+                                value={opt.name}
+                                disabled={takenElsewhere.has(opt.name)}
+                              >
+                                {opt.name} — €{opt.priceEuros}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                        <option value={CUSTOM}>Something else…</option>
+                      </select>
+                      <input
+                        type="number"
+                        min="1"
+                        value={w.priceEuros}
+                        onChange={(e) =>
+                          setWishes(
+                            wishes.map((x, j) =>
+                              j === i ? { ...x, priceEuros: e.target.value } : x,
+                            ),
+                          )
+                        }
+                        placeholder="€"
+                        className={`${inputClass} w-24 font-mono tabular-nums`}
+                      />
+                    </div>
+                    {w.custom && (
+                      <input
+                        value={w.name}
+                        onChange={(e) =>
+                          setWishes(
+                            wishes.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                          )
+                        }
+                        placeholder={WISH_HINTS[i]}
+                        autoFocus
+                        className={`${inputClass} w-full`}
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
             {halfFilled && (
               <p className="mt-3 font-mono text-xs text-red-500">

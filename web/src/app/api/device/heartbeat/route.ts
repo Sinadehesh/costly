@@ -33,7 +33,13 @@ export async function POST(req: Request) {
   // deleted), so the dead man's switch must not also breach them for silence.
   const user = await prisma.user.update({
     where: { id: auth.userId },
-    data: { lastHeartbeatAt: new Date() },
+    data: {
+      lastHeartbeatAt: new Date(),
+      // The device is alive, so this episode of silence is over: re-arm the
+      // warning for any future one. (The pending breach itself is cleared by
+      // the sweep, which compares lastHeartbeatAt against breachPendingSince.)
+      heartbeatWarningSentAt: null,
+    },
     include: { anchorItems: { orderBy: { tierLevel: 'asc' } } },
   });
 

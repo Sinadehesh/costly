@@ -12,6 +12,31 @@ on:
   workflow_dispatch:
 
 jobs:
+  # The money math lives on the web side; run its tests + typecheck too, so a
+  # broken split/cap can't reach main just because the APK still compiles.
+  web:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies
+      run: cd web && npm ci
+
+    - name: Generate Prisma client
+      run: cd web && npx prisma generate
+
+    - name: Typecheck
+      run: cd web && npm run typecheck
+
+    - name: Unit tests
+      run: cd web && npm test
+
   build:
     runs-on: ubuntu-latest
 
@@ -29,6 +54,21 @@ jobs:
         cd android
         gradle wrapper
         ./gradlew assembleDebug
+
+    # Pure-JVM unit tests for the billing-critical logic (DoomscrollDetector,
+    # MeterMath). No device or emulator needed. Runs after the build so a
+    # compile error still surfaces as a build failure first.
+    - name: Run Android unit tests
+      run: |
+        cd android
+        ./gradlew testDebugUnitTest
+
+    - name: Upload test report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-unit-test-report
+        path: android/app/build/reports/tests/testDebugUnitTest
 
     - name: Upload APK
       uses: actions/upload-artifact@v4

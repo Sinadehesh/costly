@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { resolveUserId } from '@/lib/deviceAuth';
 
 /**
- * GET /api/dashboard?userId=...
+ * GET /api/dashboard
  * One aggregate read for the Purgatory view: contract state, active holds
  * with their redemption tasks, walking-debt totals, and whether the
  * companion app has ever phoned home (armed vs unarmed).
+ *
+ * The user is resolved from the caller's credential — the web session cookie,
+ * or the companion app's x-device-secret (HealthSyncWorker reads this to find
+ * its pending redemption task). The ?userId= query parameter is NO LONGER
+ * trusted: it let anyone read anyone's financial state by guessing an id.
  */
 export async function GET(req: Request) {
-  // TODO(auth): derive userId from the session, not the query string.
-  const userId = new URL(req.url).searchParams.get('userId');
-  if (!userId) return NextResponse.json({ error: 'missing_userId' }, { status: 400 });
+  const userId = await resolveUserId(req);
+  if (!userId) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
 
   const user = await prisma.user.findUnique({
     where: { id: userId },

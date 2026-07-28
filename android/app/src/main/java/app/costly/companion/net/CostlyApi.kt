@@ -4,7 +4,6 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
-import retrofit2.http.Query
 
 interface CostlyApi {
 
@@ -34,8 +33,9 @@ interface CostlyApi {
     @POST("api/stripe/create-checkout")
     suspend fun createCheckout(): CreateCheckoutResponse
 
+    /** The user is derived from x-device-secret — no userId is sent. */
     @GET("api/dashboard")
-    suspend fun dashboard(@Query("userId") userId: String): DashboardResponse
+    suspend fun dashboard(): DashboardResponse
 
     @POST("api/redemptions/{taskId}/sync")
     suspend fun syncWalking(

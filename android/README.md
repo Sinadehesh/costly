@@ -149,13 +149,49 @@ backend takes `max()`, so replays are harmless).
 ```bash
 # from android/
 ./gradlew :app:assembleDebug            # needs Android SDK + JDK 17
+./gradlew :app:testDebugUnitTest        # pure-JVM tests, no device needed
 adb install app/build/outputs/apk/debug/app-debug.apk
 adb reverse tcp:3000 tcp:3000           # or set API_BASE_URL to your LAN/deploy
 ```
 
-`API_BASE_URL` is a `buildConfigField` in `app/build.gradle.kts` — debug
-defaults to `http://10.0.2.2:3000/` (emulator → host). Set the release
-URL before shipping an APK.
+### Build configuration (injected, not hardcoded)
+
+`API_BASE_URL` and the signing key come from Gradle properties, so no
+deployment URL or keystore password lives in the repo. Set them in
+`~/.gradle/gradle.properties` (or pass `-P…` on the command line):
+
+```properties
+# Where the companion talks to the API. Trailing slash required.
+costlyDebugApiBaseUrl=http://10.0.2.2:3000/          # optional; this is the default
+costlyReleaseApiBaseUrl=https://your-deployment.example.com/
+
+# Release signing. Omit ALL FOUR to fall back to the debug keystore.
+costlyKeystorePath=/absolute/path/to/upload-keystore.jks
+costlyKeystorePassword=…
+costlyKeyAlias=upload
+costlyKeyPassword=…
+```
+
+Two deliberate behaviours:
+
+- **A release build with no `costlyReleaseApiBaseUrl` fails at configure
+  time.** It used to hardcode `https://YOUR-DEPLOYMENT.vercel.app/`, which
+  produced an APK that installed, ran, and silently failed every network call.
+  A loud build failure beats a quietly broken app.
+- **A release build with no keystore is debug-signed, with a warning.** That's
+  fine for sideloading and correct for today, but Play rejects debug-signed
+  uploads — set the four `costlyKeystore*` properties to sign with a real
+  upload key. The point is that this is now a visible choice rather than AGP
+  silently leaving the release unsigned.
+
+### Unit tests
+
+`app/src/test/` holds pure-JVM tests (JUnit 4) for the two modules that decide
+money: `DoomscrollDetector` (swipe-signature pattern match, dormancy timeout,
+and the negative cases — walking, shaking, off-axis rotation must never bill)
+and `MeterMath` (display seconds, cent rounding that matches the server,
+hostage-ladder escalation). They need no device or emulator and run in CI on
+every push.
 
 ## The live meter overlay
 
@@ -204,16 +240,26 @@ Reach the dev server one of two ways:
 ## Device auth
 
 Every request carries an `x-device-secret` header (`net/Network.kt`
-interceptor) whose value is the `DEVICE_API_SECRET` build config field,
-sourced from the `costlyDeviceApiSecret` Gradle property (set it in
-`~/.gradle/gradle.properties` or pass `-PcostlyDeviceApiSecret=…`; defaults
-to `change-me`, matching `web/.env.example`). The backend routes still carry
-`TODO(auth)` and don't verify it yet — the header is forward-compatible: it
-must match the web `DEVICE_API_SECRET` env var the moment those checks land.
+interceptor) whose value is a **per-device secret issued at runtime** — there
+is no build-time shared secret (the old `DEVICE_API_SECRET` /
+`costlyDeviceApiSecret` Gradle property is retired).
+
+The flow:
+
+1. The web dashboard shows a one-time OTP.
+2. The user types it into the arming screen; `net/DeviceLinker` POSTs it to
+   `/api/device/link` (the only call that carries no secret — the OTP in the
+   body authorizes it).
+3. The server returns `{deviceSecret, userId}`, stored in `Prefs` and held in
+   `Network.deviceSecret`; the server keeps only a SHA-256 hash.
+4. Every subsequent request sends that secret, and the backend's
+   `requireDevice()` wrapper resolves it to the user — **the device never
+   sends a `userId`**, so one device can't bill another user's card.
+
+Backend enforcement is live (`web/src/lib/deviceAuth.ts`); a request with a
+missing, unknown, or revoked secret gets a 401.
 
 ## Not wired yet
 
-- Backend enforcement of the `x-device-secret` header — the app already
-  sends it; the Next.js routes still `TODO(auth)` the verification.
 - Tap-to-expand on the bubble (session window remaining + "End session"
   button) — `performClick` is already routed; the expanded content is TODO.

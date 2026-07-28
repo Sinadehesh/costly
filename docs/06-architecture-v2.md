@@ -29,10 +29,14 @@
    of an anchor item, the device fires a hostile notification/overlay:
    *"Thank you for buying us [Product Name]."* Each tier fires exactly
    once per session (`Session.lastTauntTier`).
-4. **Vice meter + idle detection** — AccessibilityService watches
-   `TYPE_VIEW_SCROLLED`; 60s without a scroll pauses the timer (no
-   charging sleepers). Hard cap per session (default €30) terminates
-   the session — no catastrophic chargebacks.
+4. **Vice meter + idle detection** — no AccessibilityService. The meter
+   ticks only when the hard gates hold (screen on via
+   `PowerManager.isInteractive`, target app in the foreground, phone not
+   dormant) AND at least 2 of 3 engagement signals agree (network burst
+   on the target app's UID, gyroscope swipe rhythm, media audio). 30s+
+   of near-zero motion marks the phone dormant and pauses the timer (no
+   charging sleepers). Hard cap per session (default €30) freezes
+   billing — no catastrophic chargebacks.
 5. **20/80 split** — session ends → 20% permanently captured ("the
    burn"), 80% held in purgatory for 24h.
 6. **Sweat equity, 2:1** — every scroll-minute owes 2 verified walking
@@ -86,15 +90,27 @@
   cards, since a false positive bills a user for a wobble (bounded by
   the per-session cap). `specialUse` foreground services still draw
   Play review.
-- **Dead-man's-switch false positives.** A dead battery, a week
-  offline, or Android's Doze killing WorkManager looks identical to
-  deletion from the server's side. Mitigations built in: the app pings
-  opportunistically (launch + every session event, not just the 12h
-  worker), session heartbeats count as proof of life, and the switch
-  only arms after the first ping. Recommended before real users:
-  a warning email at ~18h of silence and a short reinstall-to-cure
-  window — charging a user whose phone died in a drawer is a
-  chargeback machine.
+- **Dead-man's-switch false positives** (grace rails now built). A dead
+  battery, a week offline, or Android's Doze killing WorkManager looks
+  identical to deletion from the server's side. Mitigations: the app
+  pings opportunistically (launch + every session event, not just the
+  12h worker), session heartbeats count as proof of life, and the
+  switch only arms after the first ping. On top of that the sweep is
+  now two-stage:
+  - **18h — warning.** `isHeartbeatWarning` puts the user in a warning
+    band before the threshold and emails them once per episode of
+    silence (`User.heartbeatWarningSentAt`, cleared on every ping). The
+    warning is only recorded as sent if it actually went out, so an
+    unconfigured provider retries instead of silently swallowing it.
+  - **24h — pending, not charged.** Crossing the threshold sets
+    `CommitmentContract.breachPendingSince` and charges nothing.
+  - **+12h grace — cure or charge.** Any ping newer than the pending
+    marker cancels the breach (`isBreachCured`); only continued silence
+    past `BREACH_GRACE_HOURS` charges the fee.
+
+  Net effect: a user gets a warning 18h in and has ~18h more to open
+  the app before any money moves. Requires `NOTIFY_WEBHOOK_URL` to be
+  configured — see `web/.env.example`.
 
 ## Data model
 

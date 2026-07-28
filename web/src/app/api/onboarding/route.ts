@@ -69,8 +69,51 @@ const bodySchema = z.object({
  */
 export async function POST(req: Request) {
   // TODO(auth): replace email-in-body with a real session once auth lands.
-  const body = bodySchema.parse(await req.json());
 
+  // A bare .parse() throws past the handler, so Next answers with a 500 whose
+  // body isn't JSON — and the client's `(await res.json()).error` then throws
+  // its own parse error on top. The user sees a syntax error instead of the
+  // field they got wrong, which makes every onboarding failure undiagnosable.
+  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return NextResponse.json(
+      {
+        error: 'invalid_request',
+        field: issue?.path.join('.') ?? null,
+        message: issue ? `${issue.path.join('.') || 'body'}: ${issue.message}` : 'Malformed body.',
+        issues: parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+      },
+      { status: 400 },
+    );
+  }
+  const body = parsed.data;
+
+  // Everything below talks to Postgres or Stripe, and both fail in ways an
+  // unhandled throw renders as an HTML 500 — indistinguishable, from the form,
+  // from a broken form. The two that actually bite here are a missing
+  // STRIPE_SECRET_KEY/DATABASE_URL and a database that has not had the latest
+  // migrations applied (Prisma P2021/P2022: relation or column does not
+  // exist). Surface the reason outside production; log it always.
+  try {
+    return await onboard(body);
+  } catch (err) {
+    console.error('onboarding failed', err);
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      {
+        error: 'onboarding_failed',
+        message:
+          process.env.NODE_ENV === 'production'
+            ? 'Onboarding failed. Check the server logs.'
+            : `Onboarding failed: ${detail.split('\n').slice(0, 4).join(' ').slice(0, 400)}`,
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function onboard(body: z.infer<typeof bodySchema>) {
   // Cheapest wish = tier 1. Sorting here (not in the UI) keeps the taunt
   // ladder's "crossed in order" semantics without burdening the form.
   const rankedAnchors = [...body.anchorItems].sort((a, b) => a.priceCents - b.priceCents);
@@ -104,6 +147,14 @@ export async function POST(req: Request) {
           error: 'lockin_not_expired',
           contractId: sealed.id,
           lockinEndsAt: sealed.lockinEndsAt,
+          // Spelled out because the bare code reads like a crash to whoever
+          // hits it — this is a refusal on purpose, and the user needs to know
+          // it's their own contract holding, not a broken form.
+          message:
+            `This email is already under contract until ` +
+            `${sealed.lockinEndsAt.toISOString().slice(0, 10)}. Its terms are sealed ` +
+            `until then — that is the point of signing one. Use the dashboard, or ` +
+            `a different email.`,
         },
         { status: 409 },
       );

@@ -1,3 +1,8 @@
 <resources>
-    <color name="ic_launcher_background">#0B0D0A</color>
+    <!--
+      The angry cat's card colour from inside the app (CatWidget tier 3,
+      Tailwind red-500) — deliberately NOT the burn token #FF3B2F, which the
+      design tokens reserve for the meter itself.
+    -->
+    <color name="ic_launcher_background">#EF4444</color>
 </resources>

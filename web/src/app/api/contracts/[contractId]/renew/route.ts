@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { MAX_DELETION_FEE_CENTS } from '@/lib/penalty';
+import { MAX_DAILY_FREE_MINUTES, MAX_DELETION_FEE_CENTS } from '@/lib/penalty';
 
 const bodySchema = z.object({
   lockinDays: z.union([z.literal(7), z.literal(30)]),
   // Omit to carry the previous fee forward.
   deletionFeeCents: z.number().int().min(0).max(MAX_DELETION_FEE_CENTS).optional(),
   termsVersion: z.string().min(1),
+
+  // Renewal is the ONLY moment the daily free allowance can move: it is sealed
+  // for the duration of a contract, and this is where the next contract's
+  // terms are chosen. Omit to carry the current allowance forward.
+  dailyFreeMinutes: z.number().int().min(0).max(MAX_DAILY_FREE_MINUTES).optional(),
 });
 
 /**
@@ -36,7 +41,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ contractId: st
     );
   }
 
-  const [, renewed] = await prisma.$transaction([
+  // The allowance change rides in the same transaction as the new contract:
+  // it must never be possible to loosen the meter and then have the contract
+  // creation fail, leaving a softer setting with no term attached to it.
+  const [, renewed, user] = await prisma.$transaction([
     prisma.commitmentContract.update({
       where: { id: contractId },
       data: { status: 'COMPLETED' },
@@ -51,11 +59,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ contractId: st
         termsVersion: body.termsVersion,
       },
     }),
+    prisma.user.update({
+      where: { id: previous.userId },
+      data:
+        body.dailyFreeMinutes !== undefined ? { dailyFreeMinutes: body.dailyFreeMinutes } : {},
+      select: { dailyFreeMinutes: true },
+    }),
   ]);
 
   return NextResponse.json({
     contractId: renewed.id,
     lockinEndsAt: renewed.lockinEndsAt,
     deletionFeeCents: renewed.deletionFeeCents,
+    dailyFreeMinutes: user.dailyFreeMinutes,
   });
 }

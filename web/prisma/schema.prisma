@@ -73,6 +73,12 @@ model User {
   // people to close and reopen the app, which is the compulsion we are
   // trying to interrupt. Defaults to 0: the onboarding UI argues hard for
   // 0-5 and the product's position is that there is no healthy amount.
+  //
+  // SEALED FOR THE LOCK-IN. This is a contract term, not a preference: the
+  // user is buying accountability, and a number they can raise mid-week at
+  // the moment of craving is not accountability. /api/onboarding refuses to
+  // run against a user inside an active lock-in, and the only place it can
+  // legally move is /api/contracts/:id/renew — i.e. the next contract.
   dailyFreeMinutes Int @default(0)
 
   // ── Dead man's switch ──────────────────────────────────────────────────

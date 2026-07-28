@@ -66,8 +66,38 @@ export async function POST(req: Request) {
 
   const existing = await prisma.user.findUnique({
     where: { email: body.email },
-    select: { id: true, stripeCustomerId: true },
+    select: { id: true, stripeCustomerId: true, stripePaymentMethodId: true },
   });
+
+  // THE TERMS ARE SEALED FOR THE LOCK-IN. Re-onboarding used to close the
+  // ACTIVE contract as COMPLETED unconditionally, which made it the back door
+  // around everything /cancel and /renew refuse to do: sign 30 days at €1000,
+  // re-onboard tomorrow, walk away with no breach fee and a fresh, softer
+  // contract. Rate, free allowance, cap and fee are all terms you agreed to
+  // for a fixed period — the whole product is that you cannot renegotiate
+  // them with yourself at the moment you most want to. Changing them is what
+  // /renew is for, once the time is served.
+  //
+  // Carve-out: a user with no saved card never finished arming (the contract
+  // is created at step 3, the card vaults at step 4), so an abandoned
+  // onboarding must not brick the address forever. They were never actually
+  // under contract — the dead man's switch only arms on the first ping.
+  if (existing?.stripePaymentMethodId) {
+    const sealed = await prisma.commitmentContract.findFirst({
+      where: { userId: existing.id, status: 'ACTIVE', lockinEndsAt: { gt: new Date() } },
+      select: { id: true, lockinEndsAt: true },
+    });
+    if (sealed) {
+      return NextResponse.json(
+        {
+          error: 'lockin_not_expired',
+          contractId: sealed.id,
+          lockinEndsAt: sealed.lockinEndsAt,
+        },
+        { status: 409 },
+      );
+    }
+  }
 
   const stripeCustomerId =
     existing?.stripeCustomerId ?? (await stripe.customers.create({ email: body.email })).id;

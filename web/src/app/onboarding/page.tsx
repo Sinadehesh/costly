@@ -185,6 +185,13 @@ export default function OnboardingPage() {
               Time the meter ignores. It resets once a day — not once a
               session, so closing and reopening the app buys you nothing.
             </p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              <strong className="text-white">Choose carefully.</strong> This
+              number is locked for the whole contract. You cannot raise it on a
+              bad evening, because a limit you can move at the moment you want
+              to move it is not a limit. It changes when your contract ends,
+              and not before.
+            </p>
 
             <div className="mt-4 rounded-lg border-2 border-amber-900/70 bg-amber-950/20 p-3">
               <p className="font-mono text-[10px] tracking-widest text-amber-500">

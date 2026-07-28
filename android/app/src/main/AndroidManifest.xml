@@ -75,11 +75,25 @@
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.Costly">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Pairing deep link: costly://link?otp=123456
+                 The dashboard's "Pair this phone" button fires this, so the
+                 user never types a code. singleTask above means a link into an
+                 already-running app arrives at onNewIntent instead of stacking
+                 a second copy of the activity. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="costly" android:host="link" />
+            </intent-filter>
+
             <!-- Health Connect blocks permission requests unless the app
                  declares a privacy-policy/rationale target. This action covers
                  Android <14; the ViewPermissionUsageActivity alias below covers

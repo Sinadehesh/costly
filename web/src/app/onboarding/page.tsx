@@ -103,6 +103,7 @@ export default function OnboardingPage() {
 
   // Step 1
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [hourlyEuros, setHourlyEuros] = useState('');
   const [dailyFreeMinutes, setDailyFreeMinutes] = useState(0);
   // Step 2 — COMPLETELY OPTIONAL. Blank rows are a supported, first-class state.
@@ -170,6 +171,7 @@ export default function OnboardingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
+          password,
           hourlyRateCents: hourlyCents,
           dailyFreeMinutes,
           anchorItems: filledWishes, // may legitimately be []
@@ -242,6 +244,22 @@ export default function OnboardingPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
+                className={`${inputClass} mt-1`}
+              />
+            </label>
+            <label className="mt-4 block">
+              <span className="font-mono text-[10px] tracking-widest text-zinc-500">
+                PASSWORD
+              </span>
+              {/* An account you cannot sign back into is not an account. The
+                  session cookie expires, and onboarding refuses you while a
+                  contract is sealed — without this there is no way back in. */}
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                placeholder="at least 8 characters"
                 className={`${inputClass} mt-1`}
               />
             </label>
@@ -361,7 +379,7 @@ export default function OnboardingPage() {
           </div>
 
           <button
-            disabled={!email.includes('@') || hourlyCents <= 0}
+            disabled={!email.includes('@') || password.length < 8 || hourlyCents <= 0}
             onClick={() => setStep(2)}
             className={ctaClass}
           >

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe';
 import { SESSION_COOKIE, signSession } from '@/lib/jwt';
+import { MIN_PASSWORD_LENGTH, hashPassword } from '@/lib/password';
 import {
   ANCHOR_TIER_COUNT,
   MAX_DAILY_FREE_MINUTES,
@@ -18,6 +19,11 @@ const anchorSchema = z.object({
 
 const bodySchema = z.object({
   email: z.string().email(),
+
+  // Ordinary sign-in credential. Without it a returning user whose
+  // session cookie expired has no way back into their own account —
+  // onboarding refuses them mid-lock-in, by design.
+  password: z.string().min(MIN_PASSWORD_LENGTH),
 
   // The user states what one hour of their time is worth — no guessing.
   hourlyRateCents: z.number().int().positive(),
@@ -120,7 +126,12 @@ async function onboard(body: z.infer<typeof bodySchema>) {
 
   const existing = await prisma.user.findUnique({
     where: { email: body.email },
-    select: { id: true, stripeCustomerId: true, stripePaymentMethodId: true },
+    select: {
+      id: true,
+      stripeCustomerId: true,
+      stripePaymentMethodId: true,
+      passwordHash: true,
+    },
   });
 
   // THE TERMS ARE SEALED FOR THE LOCK-IN. Re-onboarding used to close the
@@ -136,7 +147,12 @@ async function onboard(body: z.infer<typeof bodySchema>) {
   // is created at step 3, the card vaults at step 4), so an abandoned
   // onboarding must not brick the address forever. They were never actually
   // under contract — the dead man's switch only arms on the first ping.
-  if (existing?.stripePaymentMethodId) {
+  //
+  // Second carve-out: an account with no password predates sign-in and has no
+  // way back in at all — refusing it here would lock that user out of their own
+  // dashboard permanently, which is strictly worse than the loophole. The
+  // loophole closes by itself, because this run sets their password.
+  if (existing?.stripePaymentMethodId && existing.passwordHash) {
     const sealed = await prisma.commitmentContract.findFirst({
       where: { userId: existing.id, status: 'ACTIVE', lockinEndsAt: { gt: new Date() } },
       select: { id: true, lockinEndsAt: true },
@@ -160,6 +176,8 @@ async function onboard(body: z.infer<typeof bodySchema>) {
       );
     }
   }
+
+  const passwordHash = await hashPassword(body.password);
 
   const stripeCustomerId =
     existing?.stripeCustomerId ?? (await stripe.customers.create({ email: body.email })).id;
@@ -194,6 +212,7 @@ async function onboard(body: z.infer<typeof bodySchema>) {
     where: { email: body.email },
     create: {
       email: body.email,
+      passwordHash,
       hourlyRateCents: body.hourlyRateCents,
       penaltyRateCentsPerMin: perMinuteRateCents(body.hourlyRateCents),
       sessionCapCents: body.sessionCapCents ?? 3000,
@@ -203,6 +222,7 @@ async function onboard(body: z.infer<typeof bodySchema>) {
       contracts: { create: contractData },
     },
     update: {
+      passwordHash,
       hourlyRateCents: body.hourlyRateCents,
       penaltyRateCentsPerMin: perMinuteRateCents(body.hourlyRateCents),
       dailyFreeMinutes: body.dailyFreeMinutes,

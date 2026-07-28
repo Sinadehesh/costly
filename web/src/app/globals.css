@@ -1,14 +1,36 @@
 @import 'tailwindcss';
 
-/* COSTLY design tokens — dark only. If a color isn't here, it doesn't exist. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   COSTLY design tokens — dark only. If a colour isn't here, it doesn't exist.
+
+   Colour carries meaning in this product; it is not decoration:
+     accent  money-green  the house's colour — CTAs, chrome, the system talking
+     burn    red-orange   money AT RISK and the live meter ONLY. Never a form
+                          error. If everything is alarming, nothing is.
+     gold                 the user beating the house. Rare on purpose: gold has
+                          to mean something, so only a victory earns it.
+     danger               ordinary failure (bad email, dead link). Deliberately
+                          NOT `burn`, so "you typed that wrong" never wears the
+                          same colour as "your card is about to be charged".
+   ═══════════════════════════════════════════════════════════════════════════ */
 @theme {
   --color-bg: #0b0d0a;
   --color-surface: #151812;
-  --color-accent: #2edb6a; /* money-green: CTAs, the house's colors */
-  --color-burn: #ff3b2f; /* the meter and money-at-risk ONLY */
-  --color-gold: #f5b940; /* user victories over the house */
+  --color-surface-2: #1e231a; /* raised: inputs, nested cards */
+  --color-line: #2a3124; /* hairlines and card borders */
+  --color-line-strong: #3d4634;
+
+  --color-accent: #2edb6a;
+  --color-accent-dim: #1a7a3c;
+  --color-burn: #ff3b2f;
+  --color-burn-dim: #7a1f18;
+  --color-gold: #f5b940;
+  --color-gold-dim: #7a5c1f;
+  --color-danger: #e0574a;
+
   --color-fg: #f2f4ef;
   --color-muted: #98a090;
+  --color-faint: #6b7364; /* raised from zinc-600, which failed contrast on bg */
 
   --radius-card: 16px;
 }
@@ -22,4 +44,85 @@ body {
 .money {
   font-family: var(--font-mono, ui-monospace, monospace);
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ── The cat's idle life ──────────────────────────────────────────────────
+   A mascot that holds perfectly still reads as a sticker. These are small on
+   purpose: the cat should feel alive in peripheral vision, not demand it. */
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  94%, 96% { transform: scaleY(0.06); }
+}
+@keyframes twitch {
+  0%, 88%, 100% { transform: rotate(0deg); }
+  91% { transform: rotate(-9deg); }
+  94% { transform: rotate(4deg); }
+}
+@keyframes sway {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-1.5px) rotate(0.7deg); }
+}
+@keyframes drum {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2.5px); }
+}
+@keyframes flick {
+  0%, 70%, 100% { transform: rotate(0deg); }
+  80% { transform: rotate(-16deg); }
+  90% { transform: rotate(10deg); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes caret {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.cat-part {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.cat-blink { animation: blink 7s infinite; }
+.cat-twitch { animation: twitch 9s infinite; }
+.cat-sway { animation: sway 6s ease-in-out infinite; }
+.cat-drum { animation: drum 0.5s ease-in-out infinite; }
+.cat-flick {
+  animation: flick 4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: bottom center;
+}
+.cat-float { animation: float 5s ease-in-out infinite; }
+
+/* Odometer: a digit that changed rolls up into place. Money should move like
+   a mechanical counter, never fade in like a chart label. */
+@keyframes roll-in {
+  from { transform: translateY(-0.9em); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.digit-roll {
+  display: inline-block;
+  animation: roll-in 180ms cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+.caret::after {
+  content: '▋';
+  margin-left: 0.1em;
+  animation: caret 1s step-end infinite;
+  color: var(--color-accent);
+}
+
+/* Respect the setting. Vestibular disorders are not an edge case, and an app
+   about compulsive scrolling has no business ignoring the one accessibility
+   signal the OS hands it. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

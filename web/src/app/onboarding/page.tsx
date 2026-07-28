@@ -141,6 +141,26 @@ export default function OnboardingPage() {
     [wishes],
   );
 
+  /**
+   * Read a failed response without letting the read itself blow up. A 500 from
+   * an unhandled throw comes back as HTML, so `res.json()` raises a syntax
+   * error and the user is shown *that* instead of what actually went wrong —
+   * which is how a missing env var or an unapplied migration ends up looking
+   * like a frontend bug.
+   */
+  async function failureMessage(res: Response, fallback: string): Promise<string> {
+    const raw = await res.text().catch(() => '');
+    try {
+      const body = JSON.parse(raw);
+      return body.message ?? body.error ?? `${fallback} (HTTP ${res.status})`;
+    } catch {
+      const snippet = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+      return snippet
+        ? `${fallback} (HTTP ${res.status}) — ${snippet}`
+        : `${fallback} (HTTP ${res.status})`;
+    }
+  }
+
   async function submitAndVault() {
     setBusy(true);
     setError(null);
@@ -160,13 +180,13 @@ export default function OnboardingPage() {
           withdrawalTermsVersion: WITHDRAWAL_TERMS_VERSION,
         }),
       });
-      if (!res.ok) throw new Error((await res.json()).error ?? 'onboarding_failed');
+      if (!res.ok) throw new Error(await failureMessage(res, 'onboarding_failed'));
       const { userId: newUserId } = await res.json();
 
       // No userId in the body — /api/onboarding just set the session cookie,
       // and the server resolves the user from it.
       const siRes = await fetch('/api/stripe/setup-intent', { method: 'POST' });
-      if (!siRes.ok) throw new Error('setup_intent_failed');
+      if (!siRes.ok) throw new Error(await failureMessage(siRes, 'setup_intent_failed'));
       const { clientSecret: secret } = await siRes.json();
 
       window.localStorage.setItem('costly:userId', newUserId);

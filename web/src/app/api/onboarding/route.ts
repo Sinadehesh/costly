@@ -5,6 +5,7 @@ import { stripe } from '@/lib/stripe';
 import { SESSION_COOKIE, signSession } from '@/lib/jwt';
 import {
   ANCHOR_TIER_COUNT,
+  MAX_DAILY_FREE_MINUTES,
   MAX_DELETION_FEE_CENTS,
   perMinuteRateCents,
 } from '@/lib/penalty';
@@ -34,6 +35,10 @@ const bodySchema = z.object({
   termsVersion: z.string().min(1),
 
   sessionCapCents: z.number().int().positive().max(10000).optional(),
+
+  // Minutes per local day that cost nothing. Capped server-side so it can't
+  // be set high enough to silently disable the meter; the UI argues for 0-5.
+  dailyFreeMinutes: z.number().int().min(0).max(MAX_DAILY_FREE_MINUTES).default(0),
 });
 
 /**
@@ -96,6 +101,7 @@ export async function POST(req: Request) {
       hourlyRateCents: body.hourlyRateCents,
       penaltyRateCentsPerMin: perMinuteRateCents(body.hourlyRateCents),
       sessionCapCents: body.sessionCapCents ?? 3000,
+      dailyFreeMinutes: body.dailyFreeMinutes,
       stripeCustomerId,
       anchorItems: { create: anchorData },
       contracts: { create: contractData },
@@ -103,6 +109,7 @@ export async function POST(req: Request) {
     update: {
       hourlyRateCents: body.hourlyRateCents,
       penaltyRateCentsPerMin: perMinuteRateCents(body.hourlyRateCents),
+      dailyFreeMinutes: body.dailyFreeMinutes,
       ...(body.sessionCapCents !== undefined ? { sessionCapCents: body.sessionCapCents } : {}),
       anchorItems: { deleteMany: {}, create: anchorData },
       contracts: { create: contractData },

@@ -30,6 +30,7 @@ private val Bg = Color(0xFF0B0D0A)
 private val Burn = Color(0xFFFF3B2F)
 private val Muted = Color(0xFF98A090)
 private val Fg = Color(0xFFF2F4EF)
+private val Accent = Color(0xFF2EDB6A)
 
 /**
  * The live bleed meter. A rigid, monospaced pill that punches once per second.
@@ -55,21 +56,37 @@ fun MeterOverlay() {
     }
 
     val seconds = remember(tick, meter) { MeterMath.displaySeconds(meter) }
-    val cents = remember(seconds, meter) { MeterMath.penaltyCents(seconds, meter.rateCentsPerMin) }
+    val billable = remember(tick, meter) { MeterMath.displayBillableSeconds(meter) }
+    val freeLeft = remember(tick, meter) { MeterMath.displayFreeRemaining(meter) }
+    val cents = remember(billable, meter) {
+        MeterMath.penaltyCents(billable, meter.rateCentsPerMin)
+    }
     val hostage = remember(cents, meter) { MeterMath.hostage(cents, meter.anchors) }
     val paused = meter.active && meter.runningSince == null
+    // Inside the daily allowance the bubble must not show euros ticking — the
+    // server is not charging yet, and a red number that isn't real is a lie
+    // the user would catch on their first statement.
+    val free = freeLeft > 0
 
     Column(
         modifier = Modifier
             .background(Bg.copy(alpha = 0.92f), RoundedCornerShape(14.dp))
-            .border(1.dp, Burn.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+            .border(1.dp, (if (free) Accent else Burn).copy(alpha = 0.6f), RoundedCornerShape(14.dp))
             .padding(horizontal = 14.dp, vertical = 10.dp)
             .width(150.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = if (paused) "IDLE" else "● LIVE",
-                color = if (paused) Muted else Burn,
+                text = when {
+                    paused -> "IDLE"
+                    free -> "FREE"
+                    else -> "● LIVE"
+                },
+                color = when {
+                    paused -> Muted
+                    free -> Accent
+                    else -> Burn
+                },
                 fontFamily = FontFamily.Monospace,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
@@ -83,18 +100,20 @@ fun MeterOverlay() {
             )
         }
 
-        // The number that hurts — big, red, monospaced, snapping every second.
+        // Grace: count DOWN in green. Then the number that hurts — big, red,
+        // monospaced, snapping every second.
         Text(
-            text = MeterMath.formatEuros(cents),
-            color = Burn,
+            text = if (free) MeterMath.formatClock(freeLeft) else MeterMath.formatEuros(cents),
+            color = if (free) Accent else Burn,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,
             fontSize = 30.sp,
         )
 
-        if (hostage != null) {
+        val caption = if (free) "free left today" else hostage
+        if (caption != null) {
             Text(
-                text = hostage,
+                text = caption,
                 color = Fg,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,

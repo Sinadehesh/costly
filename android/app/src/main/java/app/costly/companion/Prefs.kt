@@ -15,6 +15,7 @@ object Prefs {
     private const val KEY_ACTIVE_SESSION = "activeSessionId"
     private const val KEY_RATE = "penaltyRateCentsPerMin"
     private const val KEY_ANCHORS = "anchorsJson"
+    private const val KEY_FREE_REMAINING = "freeSecondsRemaining"
     private const val KEY_PAYMENT_FAILED = "paymentFailed"
     private const val KEY_SETTLE_UP_URL = "settleUpUrl"
 
@@ -80,10 +81,29 @@ object Prefs {
         return anchorsCache
     }
 
-    fun setMeterConfig(context: Context, rateCentsPerMin: Int, anchors: List<AnchorLite>) =
+    /**
+     * Last known remainder of today's free allowance. Only a fallback for
+     * resuming a session the app already had cached (no /start round-trip, so
+     * no fresh figure) — the server stays authoritative and every heartbeat
+     * response corrects it. Stale by at most one ping, and only ever affects
+     * what the bubble displays, never what is charged.
+     */
+    fun freeSecondsRemaining(context: Context): Int =
+        sp(context).getInt(KEY_FREE_REMAINING, 0)
+
+    fun setFreeSecondsRemaining(context: Context, seconds: Int) =
+        sp(context).edit().putInt(KEY_FREE_REMAINING, seconds.coerceAtLeast(0)).apply()
+
+    fun setMeterConfig(
+        context: Context,
+        rateCentsPerMin: Int,
+        anchors: List<AnchorLite>,
+        freeSecondsRemaining: Int,
+    ) =
         sp(context).edit()
             .putInt(KEY_RATE, rateCentsPerMin)
             .putString(KEY_ANCHORS, anchorsAdapter.toJson(anchors))
+            .putInt(KEY_FREE_REMAINING, freeSecondsRemaining.coerceAtLeast(0))
             .apply()
 
     // ── Settle Up lockout (Phase 2) — set when the backend returns 402 ──────

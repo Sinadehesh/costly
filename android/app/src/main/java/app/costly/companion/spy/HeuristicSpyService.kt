@@ -97,6 +97,12 @@ class HeuristicSpyService : Service() {
     private var sessionId: String? = null
     private var sessionPackage: String? = null
     private var sessionActiveSeconds = 0
+    // The billable subset of sessionActiveSeconds, and what is left of today's
+    // free allowance. Both are display-side mirrors of the server's split,
+    // snapped to truth on every heartbeat response — the server alone decides
+    // what is actually charged.
+    private var sessionBillableSeconds = 0
+    private var freeSecondsRemaining = 0
     private var unsentActiveSeconds = 0
     private var countingSinceFlush = false
     private var msSinceFlush = 0L
@@ -143,17 +149,24 @@ class HeuristicSpyService : Service() {
         // Unlinked, or hard-locked into Settle Up → don't even try to bill.
         if (!Prefs.isLinked(this) || Prefs.isPaymentFailed(this)) return
 
-        val id = Prefs.activeSessionId(this) ?: runCatching {
-            Network.api.startSession(StartSessionRequest(appPackage = pkg)).sessionId
+        // A cached id means we're resuming a session that survived a process
+        // kill — no /start round-trip, so no fresh allowance figure; fall back
+        // to the last one a device ping cached.
+        val cachedId = Prefs.activeSessionId(this)
+        val started = if (cachedId != null) null else runCatching {
+            Network.api.startSession(StartSessionRequest(appPackage = pkg))
         }.getOrElse {
             Log.w(TAG, "start failed (offline?) — session not billed", it)
             return
         }
+        val id = cachedId ?: started!!.sessionId
 
         Prefs.setActiveSessionId(this, id)
         sessionId = id
         sessionPackage = pkg
         sessionActiveSeconds = 0
+        sessionBillableSeconds = started?.billableSeconds ?: 0
+        freeSecondsRemaining = started?.freeSecondsRemaining ?: Prefs.freeSecondsRemaining(this)
         unsentActiveSeconds = 0
         countingSinceFlush = false
         msSinceFlush = 0
@@ -196,8 +209,11 @@ class HeuristicSpyService : Service() {
         sessionId = null
         sessionPackage = null
         sessionActiveSeconds = 0
+        sessionBillableSeconds = 0
         unsentActiveSeconds = 0
         capped = false
+        // freeSecondsRemaining is NOT reset: it is a daily budget, so it has to
+        // survive the session that spent it. Reopening the app must not refill it.
 
         MeterBus.clear()
         CostlyOverlayService.stop(this)
@@ -228,6 +244,8 @@ class HeuristicSpyService : Service() {
                 if (counting) {
                     sessionActiveSeconds++
                     unsentActiveSeconds++
+                    // Grace is spent first, mirroring the server's split.
+                    if (freeSecondsRemaining > 0) freeSecondsRemaining-- else sessionBillableSeconds++
                     countingSinceFlush = true
                 }
                 publishMeterLocked(counting)
@@ -268,6 +286,13 @@ class HeuristicSpyService : Service() {
         unsentActiveSeconds -= delta
         countingSinceFlush = false
         msSinceFlush = 0
+        // Snap to the server's split. If a backlog exceeded MAX_DELTA_SECONDS
+        // the residue isn't reflected yet, so the display can lag by that much
+        // for one cycle — the next flush corrects it, and the charge was never
+        // derived from these numbers anyway.
+        sessionBillableSeconds = response.billableSeconds
+        freeSecondsRemaining = response.freeSecondsRemaining
+        Prefs.setFreeSecondsRemaining(this, response.freeSecondsRemaining)
         response.taunts.forEach { Notifier.taunt(this, "Purchase complete.", it.message) }
         return response.capReached
     }
@@ -278,6 +303,8 @@ class HeuristicSpyService : Service() {
                 active = true,
                 appPackage = sessionPackage,
                 activeSeconds = sessionActiveSeconds,
+                billableSeconds = sessionBillableSeconds,
+                freeSecondsRemaining = freeSecondsRemaining,
                 runningSince = if (counting) SystemClock.elapsedRealtime() else null,
                 rateCentsPerMin = Prefs.rateCentsPerMin(this),
                 anchors = Prefs.anchors(this).map {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe';
+import { localNowParts } from '@/lib/localDay';
 
 const BUFFER_HOUR = 2; // only charge a local day once it's past 02:00 the next day
 
@@ -110,27 +111,9 @@ export async function GET(req: Request) {
  * A row is charged only when row.day <= this value.
  */
 function mostRecentEvaluableDay(now: Date, timeZone: string): Date {
-  const format = (tz: string) =>
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: tz,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      hourCycle: 'h23',
-    }).formatToParts(now);
-  // Ingestion validates tz, but never trust it at charge time — fall back to UTC.
-  const parts = (() => {
-    try {
-      return format(timeZone);
-    } catch {
-      return format('UTC');
-    }
-  })();
-  const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
-
-  const localTodayUtcMidnight = Date.UTC(get('year'), get('month') - 1, get('day'));
-  const offsetDays = get('hour') >= BUFFER_HOUR ? 1 : 2;
+  const { year, month, day, hour } = localNowParts(now, timeZone);
+  const localTodayUtcMidnight = Date.UTC(year, month - 1, day);
+  const offsetDays = hour >= BUFFER_HOUR ? 1 : 2;
   return new Date(localTodayUtcMidnight - offsetDays * 86_400_000);
 }
 

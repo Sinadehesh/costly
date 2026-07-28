@@ -2,7 +2,13 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireDevice } from '@/lib/deviceAuth';
-import { newlyCrossedTiers, sessionPenaltyCents } from '@/lib/penalty';
+import {
+  freeSecondsRemaining,
+  newlyCrossedTiers,
+  sessionPenaltyCents,
+  splitDailyFree,
+} from '@/lib/penalty';
+import { localCalendarDay } from '@/lib/localDay';
 
 const bodySchema = z.object({
   // Seconds of ACTIVE scrolling since the last heartbeat. The device is the
@@ -24,6 +30,13 @@ const bodySchema = z.object({
  *   heartbeat — the device fires the hostile notification/overlay for each:
  *   "Thank you for buying us [Product Name]." Tracked via lastTauntTier so
  *   every tier taunts exactly once per session.
+ * - freeSecondsRemaining: what is left of today's free allowance, so the
+ *   overlay can show a grace countdown instead of a euro figure.
+ *
+ * The device reports raw detected seconds; the server decides which of them
+ * are free. Keeping that split server-side means the free budget is one
+ * number for the whole day, shared across sessions and devices, and not
+ * something a restarted app can reset.
  */
 export async function POST(req: Request, ctx: { params: Promise<{ sessionId: string }> }) {
   const auth = await requireDevice(req);
@@ -44,9 +57,31 @@ export async function POST(req: Request, ctx: { params: Promise<{ sessionId: str
     return NextResponse.json({ error: 'session_not_active' }, { status: 409 });
   }
 
+  // Spend today's free allowance FIRST, atomically. The increment returns the
+  // post-increment total, so `before` is derived rather than read separately —
+  // two heartbeats racing here get disjoint ranges instead of both seeing the
+  // same "remaining" and each granting it.
+  const day = localCalendarDay(new Date(), session.user.timezone);
+  const dailyMeter = await prisma.dailyMeter.upsert({
+    where: { userId_day: { userId: session.userId, day } },
+    create: { userId: session.userId, day, activeSeconds: body.activeSecondsDelta },
+    update: { activeSeconds: { increment: body.activeSecondsDelta } },
+  });
+  const secondsBeforeToday = dailyMeter.activeSeconds - body.activeSecondsDelta;
+  const split = splitDailyFree(
+    secondsBeforeToday,
+    body.activeSecondsDelta,
+    session.user.dailyFreeMinutes * 60,
+  );
+
   const totalActiveSeconds = session.totalActiveSeconds + body.activeSecondsDelta;
+  const billableSeconds = session.billableSeconds + split.billableSeconds;
+  const freeSeconds = session.freeSeconds + split.freeSeconds;
+
+  // Billable seconds only — free time is free, so it neither charges nor
+  // accrues the 2:1 walking debt computed from this at /end.
   const { penaltyCents, capReached } = sessionPenaltyCents(
-    totalActiveSeconds,
+    billableSeconds,
     session.user.penaltyRateCentsPerMin,
     session.user.sessionCapCents,
   );
@@ -66,6 +101,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ sessionId: str
     where: { id: sessionId },
     data: {
       totalActiveSeconds,
+      billableSeconds,
+      freeSeconds,
       totalPenaltyCents: penaltyCents,
       capReached,
       ...(crossed.length > 0 ? { lastTauntTier: crossed[crossed.length - 1].tierLevel } : {}),
@@ -79,5 +116,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ sessionId: str
     data: { lastHeartbeatAt: new Date() },
   });
 
-  return NextResponse.json({ totalActiveSeconds, penaltyCents, capReached, taunts });
+  return NextResponse.json({
+    totalActiveSeconds,
+    billableSeconds,
+    freeSeconds,
+    freeSecondsRemaining: freeSecondsRemaining(
+      dailyMeter.activeSeconds,
+      session.user.dailyFreeMinutes,
+    ),
+    penaltyCents,
+    capReached,
+    taunts,
+  });
 }

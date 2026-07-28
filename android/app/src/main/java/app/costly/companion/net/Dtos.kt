@@ -32,6 +32,11 @@ data class StartSessionRequest(
 data class StartSessionResponse(
     val sessionId: String,
     val resumed: Boolean = false,
+    // Billable seconds already on this session (non-zero when resuming), and
+    // what is left of TODAY's free allowance — a daily budget shared across
+    // sessions, so reopening the app does not top it back up.
+    val billableSeconds: Int = 0,
+    val freeSecondsRemaining: Int = 0,
 )
 
 data class HeartbeatRequest(
@@ -48,6 +53,11 @@ data class Taunt(
 
 data class HeartbeatResponse(
     val totalActiveSeconds: Int,
+    // The server splits detected time against the daily free allowance and
+    // bills only this. Free seconds cost nothing and owe no walking debt.
+    val billableSeconds: Int = 0,
+    val freeSeconds: Int = 0,
+    val freeSecondsRemaining: Int = 0,
     val penaltyCents: Int,
     val capReached: Boolean,
     val taunts: List<Taunt> = emptyList(),
@@ -84,6 +94,8 @@ data class DeviceHeartbeatResponse(
     // Meter config for the live overlay — refreshed on every ping so the
     // bubble can tick euros and hostage-% locally, offline-tolerant.
     val penaltyRateCentsPerMin: Int? = null,
+    val dailyFreeMinutes: Int = 0,
+    val freeSecondsRemaining: Int = 0,
     val anchorItems: List<AnchorLite> = emptyList(),
 )
 

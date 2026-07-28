@@ -45,6 +45,58 @@ class MeterMathTest {
         assertEquals(30, MeterMath.displaySeconds(meter, nowRealtime = 5_000))
     }
 
+    // ── daily free allowance ──────────────────────────────────────────────
+
+    @Test
+    fun `a paused meter shows its banked billable seconds`() {
+        val meter = Meter(billableSeconds = 12, freeSecondsRemaining = 0, runningSince = null)
+        assertEquals(12, MeterMath.displayBillableSeconds(meter, nowRealtime = 999_999))
+    }
+
+    @Test
+    fun `elapsed time pays down the free allowance before it bills anything`() {
+        val meter = Meter(billableSeconds = 0, freeSecondsRemaining = 10, runningSince = 0)
+        // 4s in: still inside the allowance, so nothing is billable yet.
+        assertEquals(0, MeterMath.displayBillableSeconds(meter, nowRealtime = 4_000))
+        assertEquals(6, MeterMath.displayFreeRemaining(meter, nowRealtime = 4_000))
+    }
+
+    @Test
+    fun `billing starts only once the allowance is exhausted`() {
+        val meter = Meter(billableSeconds = 0, freeSecondsRemaining = 10, runningSince = 0)
+        // 15s in: 10 free, 5 billable.
+        assertEquals(5, MeterMath.displayBillableSeconds(meter, nowRealtime = 15_000))
+        assertEquals(0, MeterMath.displayFreeRemaining(meter, nowRealtime = 15_000))
+    }
+
+    @Test
+    fun `with no allowance left every elapsed second is billable`() {
+        val meter = Meter(billableSeconds = 30, freeSecondsRemaining = 0, runningSince = 1_000)
+        assertEquals(35, MeterMath.displayBillableSeconds(meter, nowRealtime = 6_000))
+    }
+
+    @Test
+    fun `free remaining never goes negative`() {
+        val meter = Meter(freeSecondsRemaining = 3, runningSince = 0)
+        assertEquals(0, MeterMath.displayFreeRemaining(meter, nowRealtime = 60_000))
+    }
+
+    /**
+     * The bubble shows a green grace countdown instead of euros while the
+     * allowance holds. If billable time advanced during grace the user would
+     * watch a price tick up that the server is not charging — a number they
+     * would catch on their first statement.
+     */
+    @Test
+    fun `the meter shows no cost for any instant inside the allowance`() {
+        val meter = Meter(billableSeconds = 0, freeSecondsRemaining = 300, runningSince = 0)
+        for (elapsedMs in 0..300_000 step 7_000) {
+            val billable = MeterMath.displayBillableSeconds(meter, nowRealtime = elapsedMs.toLong())
+            assertEquals(0, billable)
+            assertEquals(0, MeterMath.penaltyCents(billable, rateCentsPerMin = 100))
+        }
+    }
+
     // ── penaltyCents ──────────────────────────────────────────────────────
 
     @Test

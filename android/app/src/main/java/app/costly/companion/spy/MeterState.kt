@@ -13,15 +13,20 @@ import kotlinx.coroutines.flow.asStateFlow
  * tick, and the overlay interpolates *within* the current second for a
  * smooth per-second punch-clock feel, snapping back to truth each update.
  *
- * `activeSeconds` is billable seconds already accrued. `runningSince` is the
- * wall-clock instant the meter was last known to be actively counting (null
- * when idle/paused), so the overlay can advance the display between spy ticks
- * without inventing time the spy would consider idle.
+ * `activeSeconds` is detected seconds accrued this session; `billableSeconds`
+ * is the part of it the server will actually charge, once today's free
+ * allowance is spent. `freeSecondsRemaining` is what is left of that
+ * allowance — a DAILY budget, so it does not reset when a session does.
+ * `runningSince` is the wall-clock instant the meter was last known to be
+ * actively counting (null when idle/paused), so the overlay can advance the
+ * display between spy ticks without inventing time the spy would call idle.
  */
 data class Meter(
     val active: Boolean = false,
     val appPackage: String? = null,
     val activeSeconds: Int = 0,
+    val billableSeconds: Int = 0,
+    val freeSecondsRemaining: Int = 0,
     val runningSince: Long? = null, // SystemClock.elapsedRealtime() or null when paused
     val rateCentsPerMin: Int = 100,
     val anchors: List<AnchorSnapshot> = emptyList(),

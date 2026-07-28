@@ -62,7 +62,12 @@ class HeartbeatWorker(context: Context, params: WorkerParameters) :
             )
             // Cache the meter config so the overlay can tick locally.
             response.penaltyRateCentsPerMin?.let { rate ->
-                Prefs.setMeterConfig(applicationContext, rate, response.anchorItems)
+                Prefs.setMeterConfig(
+                    applicationContext,
+                    rate,
+                    response.anchorItems,
+                    response.freeSecondsRemaining,
+                )
             }
             // A clean 2xx means the server considers the account settled — lift
             // any local Settle Up lock (recovery is server-driven).

@@ -13,11 +13,34 @@ import java.util.Locale
  */
 object MeterMath {
 
-    /** Billable seconds to show right now: baseline + time since it was running. */
-    fun displaySeconds(meter: Meter, nowRealtime: Long = SystemClock.elapsedRealtime()): Int {
-        val running = meter.runningSince ?: return meter.activeSeconds
-        val extra = ((nowRealtime - running) / 1000L).toInt().coerceAtLeast(0)
-        return meter.activeSeconds + extra
+    /** Detected seconds to show right now: baseline + time since it was running. */
+    fun displaySeconds(meter: Meter, nowRealtime: Long = SystemClock.elapsedRealtime()): Int =
+        meter.activeSeconds + secondsSincePublish(meter, nowRealtime)
+
+    /**
+     * Billable seconds to show right now. Elapsed time since the last publish
+     * pays down the remaining free allowance FIRST and only then starts
+     * billing — mirroring the server's split, so the bubble never shows euros
+     * accruing during grace.
+     */
+    fun displayBillableSeconds(
+        meter: Meter,
+        nowRealtime: Long = SystemClock.elapsedRealtime(),
+    ): Int {
+        val extra = secondsSincePublish(meter, nowRealtime)
+        val billableExtra = (extra - meter.freeSecondsRemaining).coerceAtLeast(0)
+        return meter.billableSeconds + billableExtra
+    }
+
+    /** Free allowance left right now, counting down as the meter runs. */
+    fun displayFreeRemaining(
+        meter: Meter,
+        nowRealtime: Long = SystemClock.elapsedRealtime(),
+    ): Int = (meter.freeSecondsRemaining - secondsSincePublish(meter, nowRealtime)).coerceAtLeast(0)
+
+    private fun secondsSincePublish(meter: Meter, nowRealtime: Long): Int {
+        val running = meter.runningSince ?: return 0
+        return ((nowRealtime - running) / 1000L).toInt().coerceAtLeast(0)
     }
 
     /** Penalty in whole cents, to the cent, for the given billable seconds. */

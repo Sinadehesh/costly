@@ -37,6 +37,17 @@ export const MAX_DELETION_FEE_CENTS = 100_000;
 export const ANCHOR_TIER_COUNT = 5;
 
 /**
+ * Ceiling on the daily free allowance. Not a recommendation — the product's
+ * position is that 0-5 minutes is the honest answer and the onboarding copy
+ * says so. This is only here so the field can't be set to "24 hours" and
+ * quietly turn the meter off forever.
+ */
+export const MAX_DAILY_FREE_MINUTES = 120;
+
+/** Free-allowance choices offered at onboarding, in minutes. */
+export const DAILY_FREE_MINUTE_OPTIONS = [0, 5, 15, 30, 60] as const;
+
+/**
  * The user states what one hour of their time is worth; the meter charges
  * exactly that, minute by minute. Floored at 1 cent so the rate is never 0.
  */
@@ -65,8 +76,43 @@ export function sessionPenaltyCents(
   return { penaltyCents: Math.min(raw, capCents), capReached: raw >= capCents };
 }
 
-export function requiredWalkingMinutes(activeSeconds: number): number {
-  return Math.ceil((activeSeconds / 60) * SWEAT_RATIO);
+export function requiredWalkingMinutes(billableSeconds: number): number {
+  return Math.ceil((billableSeconds / 60) * SWEAT_RATIO);
+}
+
+export interface FreeSplit {
+  freeSeconds: number; // covered by today's allowance — no charge, no walk owed
+  billableSeconds: number;
+}
+
+/**
+ * Split a burst of newly detected seconds against the user's daily free
+ * allowance, given how many raw seconds the day had already accumulated.
+ *
+ * Expressed as a function of the counter BEFORE and AFTER the delta rather
+ * than of "remaining", so the caller can drive it from a single atomic
+ * increment: two concurrent heartbeats each get a distinct [before, after)
+ * range and cannot both spend the same free second.
+ */
+export function splitDailyFree(
+  secondsBeforeToday: number,
+  deltaSeconds: number,
+  freeAllowanceSeconds: number,
+): FreeSplit {
+  const before = Math.max(0, secondsBeforeToday);
+  const after = before + Math.max(0, deltaSeconds);
+  const usedBefore = Math.min(before, freeAllowanceSeconds);
+  const usedAfter = Math.min(after, freeAllowanceSeconds);
+  const freeSeconds = usedAfter - usedBefore;
+  return { freeSeconds, billableSeconds: Math.max(0, deltaSeconds) - freeSeconds };
+}
+
+/** Seconds of today's allowance still unspent. */
+export function freeSecondsRemaining(
+  activeSecondsToday: number,
+  dailyFreeMinutes: number,
+): number {
+  return Math.max(0, dailyFreeMinutes * 60 - Math.max(0, activeSecondsToday));
 }
 
 /** "You have burned 2.4% of your AirPods." */

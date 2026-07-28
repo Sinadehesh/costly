@@ -6,10 +6,12 @@ import {
   BREACH_GRACE_HOURS,
   BURN_SHARE,
   HEARTBEAT_WARNING_AFTER_HOURS,
+  MAX_DAILY_FREE_MINUTES,
   MAX_DELETION_FEE_CENTS,
   REDEMPTION_WINDOW_HOURS,
   SWEAT_RATIO,
   anchorPercent,
+  freeSecondsRemaining,
   isBreachCured,
   isGraceExpired,
   isHeartbeatBreached,
@@ -18,6 +20,7 @@ import {
   perMinuteRateCents,
   requiredWalkingMinutes,
   sessionPenaltyCents,
+  splitDailyFree,
   splitPenalty,
 } from './penalty';
 
@@ -329,6 +332,99 @@ describe('grace rail timing as a whole', () => {
   });
 });
 
+describe('splitDailyFree', () => {
+  const FIVE_MIN = 300;
+
+  it('bills everything when the allowance is zero', () => {
+    expect(splitDailyFree(0, 30, 0)).toEqual({ freeSeconds: 0, billableSeconds: 30 });
+  });
+
+  it('charges nothing while the day is still inside the allowance', () => {
+    expect(splitDailyFree(0, 30, FIVE_MIN)).toEqual({ freeSeconds: 30, billableSeconds: 0 });
+  });
+
+  it('splits a burst that straddles the end of the allowance', () => {
+    expect(splitDailyFree(280, 30, FIVE_MIN)).toEqual({ freeSeconds: 20, billableSeconds: 10 });
+  });
+
+  it('bills everything once the day has spent its allowance', () => {
+    expect(splitDailyFree(600, 30, FIVE_MIN)).toEqual({ freeSeconds: 0, billableSeconds: 30 });
+  });
+
+  it('treats the boundary itself as still free', () => {
+    expect(splitDailyFree(270, 30, FIVE_MIN)).toEqual({ freeSeconds: 30, billableSeconds: 0 });
+  });
+
+  it('is a no-op for a zero delta', () => {
+    expect(splitDailyFree(100, 0, FIVE_MIN)).toEqual({ freeSeconds: 0, billableSeconds: 0 });
+  });
+
+  // The invariant that matters: heartbeats arrive at arbitrary cadences, and a
+  // day chopped into 1s pieces must free and bill exactly the same totals as
+  // one chopped into 2-minute pieces. Anything else means the free allowance
+  // depends on network timing, which the user would experience as the meter
+  // charging inconsistently for identical behaviour.
+  it('frees and bills the same totals however the day is chunked', () => {
+    const chunkings = [[30], [1, 1, 1], [120, 120, 120, 120], [7, 13, 299, 41, 88]];
+    for (const chunks of chunkings) {
+      for (const allowance of [0, 60, FIVE_MIN, 3600]) {
+        let before = 0;
+        let free = 0;
+        let billable = 0;
+        for (const delta of chunks) {
+          const split = splitDailyFree(before, delta, allowance);
+          free += split.freeSeconds;
+          billable += split.billableSeconds;
+          before += delta;
+        }
+        const total = chunks.reduce((a, b) => a + b, 0);
+        expect(free + billable).toBe(total); // no seconds invented or lost
+        expect(free).toBe(Math.min(total, allowance)); // exactly the allowance, no more
+      }
+    }
+  });
+
+  // Two heartbeats can land at once. The caller derives `before` from a single
+  // atomic increment, so each gets a disjoint range — if this ever double-spent,
+  // a user would get free time they hadn't earned and the meter would under-bill.
+  it('cannot grant the same free second twice to racing heartbeats', () => {
+    const a = splitDailyFree(290, 20, FIVE_MIN); // increment returned 310
+    const b = splitDailyFree(310, 20, FIVE_MIN); // increment returned 330
+    expect(a.freeSeconds + b.freeSeconds).toBe(10); // only the 10s that remained
+  });
+
+  it('never returns negative or fractional seconds', () => {
+    for (let before = 0; before < 700; before += 13) {
+      for (const delta of [0, 1, 30, 120]) {
+        const split = splitDailyFree(before, delta, FIVE_MIN);
+        expect(split.freeSeconds).toBeGreaterThanOrEqual(0);
+        expect(split.billableSeconds).toBeGreaterThanOrEqual(0);
+        expect(Number.isInteger(split.freeSeconds)).toBe(true);
+        expect(Number.isInteger(split.billableSeconds)).toBe(true);
+      }
+    }
+  });
+});
+
+describe('freeSecondsRemaining', () => {
+  it('reports the untouched allowance', () => {
+    expect(freeSecondsRemaining(0, 5)).toBe(300);
+  });
+
+  it('counts down as the day is spent', () => {
+    expect(freeSecondsRemaining(120, 5)).toBe(180);
+  });
+
+  it('floors at zero rather than going negative', () => {
+    expect(freeSecondsRemaining(9999, 5)).toBe(0);
+  });
+
+  it('is always zero when the user chose no allowance', () => {
+    expect(freeSecondsRemaining(0, 0)).toBe(0);
+    expect(freeSecondsRemaining(50, 0)).toBe(0);
+  });
+});
+
 describe('constants', () => {
   it('holds the settled product decisions', () => {
     // These are product decisions, not tunables — a change here is a business
@@ -339,5 +435,8 @@ describe('constants', () => {
     expect(BREACH_AFTER_HOURS).toBe(24);
     expect(MAX_DELETION_FEE_CENTS).toBe(100_000);
     expect(ANCHOR_TIER_COUNT).toBe(5);
+    // A ceiling, not a recommendation — but it must exist, or the allowance
+    // could be set high enough to switch the meter off permanently.
+    expect(MAX_DAILY_FREE_MINUTES).toBe(120);
   });
 });

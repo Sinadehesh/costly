@@ -6,6 +6,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { CatWidget } from '@/components/CatWidget';
 import { euros, eurosExact } from '@/lib/format';
+import { DAILY_FREE_MINUTE_OPTIONS } from '@/lib/penalty';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -103,6 +104,7 @@ export default function OnboardingPage() {
   // Step 1
   const [email, setEmail] = useState('');
   const [hourlyEuros, setHourlyEuros] = useState('');
+  const [dailyFreeMinutes, setDailyFreeMinutes] = useState(0);
   // Step 2 — COMPLETELY OPTIONAL. Blank rows are a supported, first-class state.
   const [wishes, setWishes] = useState<WishDraft[]>(
     WISH_HINTS.map(() => ({ name: '', priceEuros: '', custom: false })),
@@ -149,6 +151,7 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           email,
           hourlyRateCents: hourlyCents,
+          dailyFreeMinutes,
           anchorItems: filledWishes, // may legitimately be []
           deletionFeeCents: Math.round(feeEuros * 100),
           lockinDays,
@@ -246,6 +249,97 @@ export default function OnboardingPage() {
               </div>
             )}
           </div>
+
+          {/* Daily free allowance. The honest warning comes first, in a plain
+              voice — a health claim delivered entirely in sarcasm reads as a
+              joke, and this one is not one. The cat gets the last word only. */}
+          <div className={cardClass}>
+            <h2 className="text-xl font-extrabold text-white">Free minutes each day</h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Time the meter ignores. It resets once a day — not once a
+              session, so closing and reopening the app buys you nothing.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              <strong className="text-white">Choose carefully.</strong> This
+              number is locked for the whole contract. You cannot raise it on a
+              bad evening, because a limit you can move at the moment you want
+              to move it is not a limit. It changes when your contract ends,
+              and not before.
+            </p>
+
+            <div className="mt-4 rounded-lg border-2 border-amber-900/70 bg-amber-950/20 p-3">
+              <p className="font-mono text-[10px] tracking-widest text-amber-500">
+                READ THIS FIRST
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed text-zinc-300">
+                There is no healthy daily dose of Instagram. It is engineered to
+                be hard to stop — endless feed, autoplay, variable rewards — and
+                the cost lands on your attention, your sleep and your mood.
+                &ldquo;Normal usage&rdquo; is a number the app taught you to
+                accept.
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+                Pick <strong className="text-white">0</strong>. If you truly need
+                to keep up with friends,{' '}
+                <strong className="text-white">5 minutes</strong> covers their
+                stories and nothing else.
+              </p>
+            </div>
+
+            <div className="mt-4 grid grid-cols-5 gap-1.5">
+              {DAILY_FREE_MINUTE_OPTIONS.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setDailyFreeMinutes(m)}
+                  className={`rounded-lg border-2 py-3 font-mono text-sm font-bold tabular-nums transition ${
+                    dailyFreeMinutes === m
+                      ? 'border-emerald-500 bg-emerald-500 text-zinc-950'
+                      : 'border-gray-800 bg-zinc-950 text-zinc-400 hover:border-gray-700'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-center font-mono text-[10px] tracking-widest text-zinc-600">
+              MINUTES PER DAY · FREE
+            </p>
+
+            <p className="mt-4 text-sm leading-relaxed text-zinc-400">
+              {dailyFreeMinutes === 0 ? (
+                <>
+                  Zero. Every second is billable from the moment you open it.
+                  The cat is visibly disappointed in this choice.
+                </>
+              ) : dailyFreeMinutes <= 5 ? (
+                <>
+                  {dailyFreeMinutes} minutes. Enough for the stories, not enough
+                  for the hole. Acceptable.
+                </>
+              ) : (
+                <>
+                  {dailyFreeMinutes} free minutes a day is{' '}
+                  <span className="font-mono tabular-nums text-white">
+                    {Math.round((dailyFreeMinutes * 365) / 60)} hours
+                  </span>{' '}
+                  a year that we agreed not to charge you for.
+                  {hourlyCents > 0 && (
+                    <>
+                      {' '}
+                      At your rate that is{' '}
+                      <span className="font-mono tabular-nums text-emerald-400">
+                        {euros(Math.round(dailyFreeMinutes * 365 * perMinuteCents))}
+                      </span>{' '}
+                      of meter you switched off. The cat is thrilled. That should
+                      worry you.
+                    </>
+                  )}
+                </>
+              )}
+            </p>
+          </div>
+
           <button
             disabled={!email.includes('@') || hourlyCents <= 0}
             onClick={() => setStep(2)}

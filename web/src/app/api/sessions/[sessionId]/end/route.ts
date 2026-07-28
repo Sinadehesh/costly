@@ -87,7 +87,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ sessionId: str
       stripePurgatoryPaymentIntentId: purgatoryIntent.id,
       redemption: {
         create: {
-          requiredWalkingMinutes: requiredWalkingMinutes(session.totalActiveSeconds),
+          // Billable, not detected: seconds covered by the daily free
+          // allowance owe no walk, the same way they owed no money.
+          requiredWalkingMinutes: requiredWalkingMinutes(session.billableSeconds),
           deadline,
         },
       },

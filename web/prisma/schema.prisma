@@ -66,6 +66,21 @@ model User {
   sessionCapCents Int @default(3000) // hard financial stop per session (€30)
   idleTimeoutSecs Int @default(60)   // pause timer after N s without a scroll event
 
+  // ── Daily free allowance ───────────────────────────────────────────────
+  // Minutes of detected scrolling per LOCAL day that cost nothing: no money,
+  // no walking debt. Consumed across every session in the day (see
+  // DailyMeter), never per-session — a per-session grace would just teach
+  // people to close and reopen the app, which is the compulsion we are
+  // trying to interrupt. Defaults to 0: the onboarding UI argues hard for
+  // 0-5 and the product's position is that there is no healthy amount.
+  //
+  // SEALED FOR THE LOCK-IN. This is a contract term, not a preference: the
+  // user is buying accountability, and a number they can raise mid-week at
+  // the moment of craving is not accountability. /api/onboarding refuses to
+  // run against a user inside an active lock-in, and the only place it can
+  // legally move is /api/contracts/:id/renew — i.e. the next contract.
+  dailyFreeMinutes Int @default(0)
+
   // ── Dead man's switch ──────────────────────────────────────────────────
   // The companion app pings /api/device/heartbeat every 12h. The sweep
   // treats 2 consecutive missed pings (>24h of silence) during an ACTIVE
@@ -114,6 +129,36 @@ model User {
   contracts       CommitmentContract[]
   devices         Device[]
   dailyActivities DailyActivity[]
+  dailyMeters     DailyMeter[]
+}
+
+// One row per user per LOCAL calendar day, holding the raw detected scroll
+// seconds for that day. This is what makes the daily free allowance a daily
+// budget rather than a per-session one.
+//
+// Deliberately NOT folded into DailyActivity: that table's presence is the
+// laziness cron's trigger ("no row = no charge, we punish laziness, not a
+// sync failure"). Writing scroll data there would fabricate steps=0 rows for
+// anyone who scrolled before their health sync landed, and charge them a
+// laziness penalty for it.
+//
+// activeSeconds is incremented atomically by the session heartbeat; the free
+// vs billable split is derived from the value before and after that
+// increment, so two concurrent heartbeats can never spend the same free
+// second twice.
+model DailyMeter {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  day           DateTime @db.Date // user-local calendar day
+  activeSeconds Int      @default(0) // raw detected seconds, free + billable
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, day])
+  @@index([userId])
 }
 
 // Phase 3 — one row per user per calendar day. Step totals are pushed by the
@@ -248,11 +293,18 @@ model Session {
   startTime  DateTime  @default(now())
   endTime    DateTime?
 
-  // Active (billable) time only. Idle gaps — no TYPE_VIEW_SCROLLED event for
-  // idleTimeoutSecs — are excluded by the heartbeat endpoint, so this is the
-  // authoritative billable duration, not endTime - startTime.
+  // All DETECTED active time. Idle gaps — no scroll signal for
+  // idleTimeoutSecs — are excluded by the device, so this is real engagement,
+  // not endTime - startTime. It is not the billing base: see billableSeconds.
   totalActiveSeconds Int       @default(0)
   lastScrollEventAt  DateTime?
+
+  // totalActiveSeconds split by the user's daily free allowance.
+  // billableSeconds drives BOTH the penalty and the walking debt — free time
+  // is genuinely free, so it buys no charge and owes no walk.
+  // Invariant: freeSeconds + billableSeconds == totalActiveSeconds.
+  billableSeconds Int @default(0)
+  freeSeconds     Int @default(0)
 
   totalPenaltyCents Int     @default(0)
   burnCents         Int     @default(0) // 20% — permanently captured

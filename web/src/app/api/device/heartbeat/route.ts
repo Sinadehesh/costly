@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireDevice } from '@/lib/deviceAuth';
+import { freeSecondsRemaining } from '@/lib/penalty';
+import { localCalendarDay } from '@/lib/localDay';
 
 const bodySchema = z.object({
   // Self-reported diagnostics — useful for support disputes ("the app was
@@ -55,6 +57,13 @@ export async function POST(req: Request) {
     select: { id: true, lockinEndsAt: true, deletionFeeCents: true },
   });
 
+  const dailyMeter = await prisma.dailyMeter.findUnique({
+    where: {
+      userId_day: { userId: auth.userId, day: localCalendarDay(new Date(), user.timezone) },
+    },
+    select: { activeSeconds: true },
+  });
+
   // Tell the device where it stands (contract state for the arming UI) and
   // ship the meter config: the live overlay ticks locally every second, so
   // it needs the rate and the hostage ladder on-device, refreshed each ping.
@@ -62,6 +71,11 @@ export async function POST(req: Request) {
     ok: true,
     contract: activeContract,
     penaltyRateCentsPerMin: user.penaltyRateCentsPerMin,
+    dailyFreeMinutes: user.dailyFreeMinutes,
+    freeSecondsRemaining: freeSecondsRemaining(
+      dailyMeter?.activeSeconds ?? 0,
+      user.dailyFreeMinutes,
+    ),
     anchorItems: user.anchorItems.map((a) => ({
       name: a.name,
       priceCents: a.priceCents,

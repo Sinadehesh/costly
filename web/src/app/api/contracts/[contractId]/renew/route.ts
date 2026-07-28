@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/jwt';
-import { MAX_DELETION_FEE_CENTS } from '@/lib/penalty';
+import { MAX_DAILY_FREE_MINUTES, MAX_DELETION_FEE_CENTS } from '@/lib/penalty';
 
 const bodySchema = z.object({
   lockinDays: z.union([z.literal(7), z.literal(30)]),
@@ -14,6 +14,11 @@ const bodySchema = z.object({
   // of consent to a contract that no longer exists.
   withdrawalConsent: z.literal(true),
   withdrawalTermsVersion: z.string().min(1),
+
+  // Renewal is the ONLY moment the daily free allowance can move: it is sealed
+  // for the duration of a contract, and this is where the next contract's
+  // terms are chosen. Omit to carry the current allowance forward.
+  dailyFreeMinutes: z.number().int().min(0).max(MAX_DAILY_FREE_MINUTES).optional(),
 });
 
 /**
@@ -53,7 +58,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ contractId: st
     );
   }
 
-  const [, renewed] = await prisma.$transaction([
+  // The allowance change rides in the same transaction as the new contract:
+  // it must never be possible to loosen the meter and then have the contract
+  // creation fail, leaving a softer setting with no term attached to it.
+  const [, renewed, user] = await prisma.$transaction([
     prisma.commitmentContract.update({
       // userId in the filter so a concurrent ownership change can't slip through.
       where: { id: contractId, userId },
@@ -71,11 +79,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ contractId: st
         withdrawalTermsVersion: body.withdrawalTermsVersion,
       },
     }),
+    prisma.user.update({
+      where: { id: userId },
+      data:
+        body.dailyFreeMinutes !== undefined ? { dailyFreeMinutes: body.dailyFreeMinutes } : {},
+      select: { dailyFreeMinutes: true },
+    }),
   ]);
 
   return NextResponse.json({
     contractId: renewed.id,
     lockinEndsAt: renewed.lockinEndsAt,
     deletionFeeCents: renewed.deletionFeeCents,
+    dailyFreeMinutes: user.dailyFreeMinutes,
   });
 }

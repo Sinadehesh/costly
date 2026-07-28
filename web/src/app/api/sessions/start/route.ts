@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireDevice } from '@/lib/deviceAuth';
+import { freeSecondsRemaining } from '@/lib/penalty';
+import { localCalendarDay } from '@/lib/localDay';
 
 const bodySchema = z.object({
   appPackage: z.string().min(1), // e.g. "com.zhiliaoapp.musically"
@@ -33,10 +35,27 @@ export async function POST(req: Request) {
     );
   }
 
+  // How much grace is left TODAY, not for this session — the allowance is a
+  // daily budget, so reopening the app does not top it back up. The device
+  // needs it up front to render the free countdown before the first heartbeat.
+  const day = localCalendarDay(new Date(), user.timezone);
+  const dailyMeter = await prisma.dailyMeter.findUnique({
+    where: { userId_day: { userId: auth.userId, day } },
+    select: { activeSeconds: true },
+  });
+  const freeRemaining = freeSecondsRemaining(dailyMeter?.activeSeconds ?? 0, user.dailyFreeMinutes);
+
   const existing = await prisma.session.findFirst({
     where: { userId: auth.userId, status: 'ACTIVE' },
   });
-  if (existing) return NextResponse.json({ sessionId: existing.id, resumed: true });
+  if (existing) {
+    return NextResponse.json({
+      sessionId: existing.id,
+      resumed: true,
+      billableSeconds: existing.billableSeconds,
+      freeSecondsRemaining: freeRemaining,
+    });
+  }
 
   const session = await prisma.session.create({
     data: {
@@ -46,5 +65,10 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json({ sessionId: session.id, resumed: false });
+  return NextResponse.json({
+    sessionId: session.id,
+    resumed: false,
+    billableSeconds: 0,
+    freeSecondsRemaining: freeRemaining,
+  });
 }

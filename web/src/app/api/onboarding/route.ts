@@ -5,6 +5,7 @@ import { stripe } from '@/lib/stripe';
 import { SESSION_COOKIE, signSession } from '@/lib/jwt';
 import {
   ANCHOR_TIER_COUNT,
+  MAX_DAILY_FREE_MINUTES,
   MAX_DELETION_FEE_CENTS,
   perMinuteRateCents,
 } from '@/lib/penalty';
@@ -42,6 +43,10 @@ const bodySchema = z.object({
   withdrawalTermsVersion: z.string().min(1),
 
   sessionCapCents: z.number().int().positive().max(10000).optional(),
+
+  // Minutes per local day that cost nothing. Capped server-side so it can't
+  // be set high enough to silently disable the meter; the UI argues for 0-5.
+  dailyFreeMinutes: z.number().int().min(0).max(MAX_DAILY_FREE_MINUTES).default(0),
 });
 
 /**
@@ -56,6 +61,9 @@ const bodySchema = z.object({
  *   - closes any previous ACTIVE contract as COMPLETED before creating the
  *     new one — the dead man's switch must never have two armed contracts,
  *     or a single silence would double-charge.
+ * It REFUSES entirely for an armed user still inside a lock-in (409): the
+ * terms are sealed for the period, and this route closing contracts is
+ * exactly what would otherwise make them negotiable. See the guard below.
  * The client then calls /api/stripe/setup-intent to save a card — without a
  * saved payment method the meter must refuse to arm.
  */
@@ -69,8 +77,38 @@ export async function POST(req: Request) {
 
   const existing = await prisma.user.findUnique({
     where: { email: body.email },
-    select: { id: true, stripeCustomerId: true },
+    select: { id: true, stripeCustomerId: true, stripePaymentMethodId: true },
   });
+
+  // THE TERMS ARE SEALED FOR THE LOCK-IN. Re-onboarding used to close the
+  // ACTIVE contract as COMPLETED unconditionally, which made it the back door
+  // around everything /cancel and /renew refuse to do: sign 30 days at €1000,
+  // re-onboard tomorrow, walk away with no breach fee and a fresh, softer
+  // contract. Rate, free allowance, cap and fee are all terms you agreed to
+  // for a fixed period — the whole product is that you cannot renegotiate
+  // them with yourself at the moment you most want to. Changing them is what
+  // /renew is for, once the time is served.
+  //
+  // Carve-out: a user with no saved card never finished arming (the contract
+  // is created at step 3, the card vaults at step 4), so an abandoned
+  // onboarding must not brick the address forever. They were never actually
+  // under contract — the dead man's switch only arms on the first ping.
+  if (existing?.stripePaymentMethodId) {
+    const sealed = await prisma.commitmentContract.findFirst({
+      where: { userId: existing.id, status: 'ACTIVE', lockinEndsAt: { gt: new Date() } },
+      select: { id: true, lockinEndsAt: true },
+    });
+    if (sealed) {
+      return NextResponse.json(
+        {
+          error: 'lockin_not_expired',
+          contractId: sealed.id,
+          lockinEndsAt: sealed.lockinEndsAt,
+        },
+        { status: 409 },
+      );
+    }
+  }
 
   const stripeCustomerId =
     existing?.stripeCustomerId ?? (await stripe.customers.create({ email: body.email })).id;
@@ -108,6 +146,7 @@ export async function POST(req: Request) {
       hourlyRateCents: body.hourlyRateCents,
       penaltyRateCentsPerMin: perMinuteRateCents(body.hourlyRateCents),
       sessionCapCents: body.sessionCapCents ?? 3000,
+      dailyFreeMinutes: body.dailyFreeMinutes,
       stripeCustomerId,
       anchorItems: { create: anchorData },
       contracts: { create: contractData },
@@ -115,6 +154,7 @@ export async function POST(req: Request) {
     update: {
       hourlyRateCents: body.hourlyRateCents,
       penaltyRateCentsPerMin: perMinuteRateCents(body.hourlyRateCents),
+      dailyFreeMinutes: body.dailyFreeMinutes,
       ...(body.sessionCapCents !== undefined ? { sessionCapCents: body.sessionCapCents } : {}),
       anchorItems: { deleteMany: {}, create: anchorData },
       contracts: { create: contractData },

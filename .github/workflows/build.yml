@@ -1,8 +1,15 @@
 name: Android APK Build
 
 on:
+  # Feature branches too, not just main. The Kotlin can't be compiled in the
+  # sandboxes this repo is often edited from (no Android SDK), so CI is the
+  # first real compiler it meets — and it has already caught errors that
+  # review missed. Waiting until merge to find out is the expensive order.
   push:
+    branches: [ "main", "claude/**" ]
+  pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   # The money math lives on the web side; run its tests + typecheck too, so a

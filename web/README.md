@@ -21,9 +21,12 @@ plain scheduler (system cron, GitHub Actions schedule) at
 ```
 src/app/api/
 ├── onboarding/route.ts                    POST  create user (explicit hourly
-│                                                rate → per-minute rate), 5-tier
-│                                                anchor ladder, commitment
-│                                                contract, Stripe customer
+│                                                rate → per-minute rate), daily
+│                                                free allowance, 5-tier anchor
+│                                                ladder, commitment contract,
+│                                                Stripe customer. 409s for an
+│                                                armed user inside lock-in —
+│                                                the terms are sealed
 ├── dashboard/route.ts                     GET   aggregate Purgatory view:
 │                                                contract, holds + redemptions,
 │                                                walking totals, armed state
@@ -45,7 +48,9 @@ src/app/api/
 │       ├── cancel/route.ts                POST  free exit, ONLY after lock-in
 │       │                                        has been served
 │       └── renew/route.ts                 POST  new lock-in period (new row,
-│                                                fresh consent evidence)
+│                                                fresh consent evidence); the
+│                                                only place the free allowance
+│                                                can change
 ├── sessions/
 │   ├── start/route.ts                     POST  device: blocked app foregrounded;
 │   │                                            refuses to arm w/o saved card

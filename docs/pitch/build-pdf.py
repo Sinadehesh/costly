@@ -17,6 +17,7 @@ SECTIONS = [
     ("The pitch", "01-narrative.md"),
     ("The deck", "02-deck.md"),
     ("Q&amp;A preparation", "03-qa-prep.md"),
+    ("What to send, and to whom", "04-application-kit.md"),
     ("How to use this set", "README.md"),
 ]
 

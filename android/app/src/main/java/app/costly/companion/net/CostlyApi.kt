@@ -7,7 +7,18 @@ import retrofit2.http.Path
 
 interface CostlyApi {
 
-    /** Device linking — exchanges the dashboard OTP for a per-device secret. */
+    /**
+     * Ordinary email + password sign-in. Returns a per-device secret, so the
+     * password is used once and never stored on the device.
+     */
+    @POST("api/auth/login")
+    suspend fun login(@Body body: LoginRequest): LoginResponse
+
+    /**
+     * Legacy OTP pairing. Superseded by login() — kept because a device linked
+     * under the old flow still holds a valid secret, and removing the endpoint
+     * from the client would strand anyone mid-migration.
+     */
     @POST("api/device/link")
     suspend fun linkDevice(@Body body: LinkDeviceRequest): LinkDeviceResponse
 

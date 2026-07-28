@@ -7,6 +7,22 @@ package app.costly.companion.net
  * them in lockstep with the route handlers in web/src/app/api.
  */
 
+// ── Sign-in ────────────────────────────────────────────────────────────────
+
+data class LoginRequest(
+    val email: String,
+    val password: String,
+    /** Naming this device also asks the server for a per-device secret. */
+    val deviceLabel: String,
+)
+
+data class LoginResponse(
+    val userId: String,
+    // Returned exactly once. The password is never persisted; this is.
+    val deviceSecret: String? = null,
+    val deviceId: String? = null,
+)
+
 // ── Device linking (Phase 1) ────────────────────────────────────────────────
 
 data class LinkDeviceRequest(

@@ -1,6 +1,7 @@
 package app.costly.companion.ui
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
@@ -13,36 +14,50 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.health.connect.client.HealthConnectClient
@@ -54,21 +69,60 @@ import app.costly.companion.overlay.OverlayPermission
 import app.costly.companion.spy.HeuristicSpyService
 import app.costly.companion.spy.UsageAccess
 import app.costly.companion.ui.theme.Accent
+import app.costly.companion.ui.theme.AccentDim
 import app.costly.companion.ui.theme.Bg
 import app.costly.companion.ui.theme.Burn
 import app.costly.companion.ui.theme.CostlyTheme
+import app.costly.companion.ui.theme.Danger
+import app.costly.companion.ui.theme.Faint
 import app.costly.companion.ui.theme.Fg
 import app.costly.companion.ui.theme.Gold
+import app.costly.companion.ui.theme.Line
 import app.costly.companion.ui.theme.Muted
+import app.costly.companion.ui.theme.Surface2
 import app.costly.companion.work.HealthSyncWorker
 import app.costly.companion.work.HeartbeatWorker
+import kotlinx.coroutines.launch
 
+/**
+ * The companion's front door.
+ *
+ * It used to open on five permission cards stacked at once, with a manual
+ * 6-digit code as step one — a wall of technical chores handed to somebody who
+ * has just signed a financial contract and expects to be finished. Three
+ * things were wrong with that and all three are fixed here:
+ *
+ *  1. ONE THING AT A TIME. Setup is now a sequence: connect, then each
+ *     permission in turn, with the rest collapsed. You cannot skim five
+ *     simultaneous asks and know which one is blocking you.
+ *  2. NOBODY TYPES A CODE. It signs in with an email and a password like any
+ *     other app. The old 6-digit pairing code is a TV-and-console pattern and
+ *     had no business on a device with a keyboard. The costly:// deep link
+ *     still resolves so already-paired devices keep working.
+ *  3. ANDROID'S RESTRICTED SETTINGS IS HANDLED OUT LOUD. On Android 13+ a
+ *     sideloaded app cannot be granted Usage Access or overlay at all until
+ *     the user flips "Allow restricted settings" in App info. The old UI
+ *     bounced you to a settings screen with a permanently greyed-out toggle
+ *     and no explanation — the single most common way to get stuck here.
+ */
 class MainActivity : ComponentActivity() {
+    private var pendingOtp by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingOtp = otpFrom(intent)
         setContent {
-            CostlyTheme { ArmingScreen() }
+            CostlyTheme {
+                ArmingScreen(pendingOtp = pendingOtp, onOtpConsumed = { pendingOtp = null })
+            }
         }
+    }
+
+    /** The activity is singleTask, so a deep link into a running app lands here. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingOtp = otpFrom(intent)
     }
 
     override fun onResume() {
@@ -78,29 +132,204 @@ class MainActivity : ComponentActivity() {
         // ArmingScreen dismisses the Settle Up screen the moment it does.
         HeartbeatWorker.pingNow(this)
     }
+
+    private fun otpFrom(intent: Intent?): String? =
+        intent?.data
+            ?.takeIf { it.scheme == "costly" }
+            ?.getQueryParameter("otp")
+            ?.filter(Char::isDigit)
+            ?.takeIf { it.length == 6 }
+}
+
+// ── Shared bits ──────────────────────────────────────────────────────────────
+
+@Composable
+private fun Eyebrow(text: String, color: Color = Accent) {
+    Text(
+        text,
+        color = color,
+        fontFamily = FontFamily.Monospace,
+        fontSize = 11.sp,
+        letterSpacing = 3.sp,
+    )
+}
+
+// onClick is LAST so every call site can use trailing-lambda syntax; with it in
+// the middle, `PrimaryButton("x") { … }` binds the lambda to `color` instead.
+@Composable
+private fun PrimaryButton(
+    text: String,
+    enabled: Boolean = true,
+    color: Color = Accent,
+    onClick: () -> Unit,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = color,
+            contentColor = Bg,
+            disabledContainerColor = Surface2,
+            disabledContentColor = Faint,
+        ),
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+    ) { Text(text, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
 }
 
 /**
- * The arming UI. One job: bind this device to a userId, walk the user
- * through the three permissions that make the system real, and let them
- * trigger a manual health sync when they want their money back sooner.
+ * A setup step. Exactly one is `active` at a time; finished steps shrink to a
+ * single green line and pending ones grey out, so the screen always answers
+ * "what do I do next" without being read top to bottom.
  */
 @Composable
-fun ArmingScreen() {
+private fun Step(
+    number: Int,
+    title: String,
+    done: Boolean,
+    active: Boolean,
+    body: String? = null,
+    content: @Composable () -> Unit = {},
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (active) MaterialTheme.colorScheme.surface else Bg,
+        ),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = if (active) 2.dp else 1.dp,
+                color = if (done) AccentDim else if (active) Line else Line.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(16.dp),
+            ),
+    ) {
+        Column(Modifier.padding(if (active) 18.dp else 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(
+                            if (done) Accent else if (active) Surface2 else Bg,
+                            CircleShape,
+                        )
+                        .border(1.dp, if (done) Accent else Line, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        if (done) "✓" else "$number",
+                        color = if (done) Bg else if (active) Fg else Faint,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    title,
+                    color = if (done) Accent else if (active) Fg else Faint,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                )
+            }
+
+            // Only the step you're on explains itself. Collapsed steps stay a
+            // single line so the whole flow fits on one screen.
+            if (active) {
+                body?.let {
+                    Spacer(Modifier.height(10.dp))
+                    Text(it, color = Muted, fontSize = 13.sp, lineHeight = 19.sp)
+                }
+                Spacer(Modifier.height(14.dp))
+                content()
+            }
+        }
+    }
+}
+
+/**
+ * The escape hatch for Android's restricted settings. Sideloading is the ONLY
+ * way to install this app today, and Android 13+ silently refuses to let a
+ * sideloaded app hold Usage Access or overlay until this toggle is flipped —
+ * the settings switch is simply greyed out with no reason given. Without this
+ * panel the setup is a dead end, which is exactly where testing got stuck.
+ */
+@Composable
+private fun RestrictedSettingsHelp(context: Context) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(Surface2, RoundedCornerShape(14.dp))
+            .border(1.dp, Danger.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+            .padding(14.dp),
+    ) {
+        Eyebrow("TOGGLE GREYED OUT?", Danger)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Android blocks sideloaded apps from holding this permission until you " +
+                "unlock it by hand. It takes ten seconds:",
+            color = Muted,
+            fontSize = 13.sp,
+            lineHeight = 19.sp,
+        )
+        Spacer(Modifier.height(8.dp))
+        listOf(
+            "Open App info below",
+            "Tap ⋮ in the top-right corner",
+            "Tap \"Allow restricted settings\"",
+            "Come back and grant the permission",
+        ).forEachIndexed { i, line ->
+            Text(
+                "${i + 1}.  $line",
+                color = Fg,
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Monospace,
+                lineHeight = 22.sp,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = {
+                context.startActivity(
+                    Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:${context.packageName}"),
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            },
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Open App info", color = Fg) }
+    }
+}
+
+// ── The screen ───────────────────────────────────────────────────────────────
+
+@Composable
+fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var userId by remember { mutableStateOf(Prefs.userId(context) ?: "") }
-    var otp by remember { mutableStateOf("") }
+
     var linked by remember { mutableStateOf(Prefs.isLinked(context)) }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var linking by remember { mutableStateOf(false) }
     var linkError by remember { mutableStateOf<String?>(null) }
+
     var monitoringOn by remember { mutableStateOf(UsageAccess.isGranted(context)) }
-    var healthGranted by remember { mutableStateOf(false) }
-    var syncRequested by remember { mutableStateOf(false) }
     var overlayOn by remember { mutableStateOf(OverlayPermission.canDraw(context)) }
-    var showRestrictedWarning by remember { mutableStateOf(false) }
-    // Reactive so the screen dismisses itself the instant the lock clears
-    // (HeartbeatWorker.clearPaymentFailed writes the flag on a 2xx).
+    var healthGranted by remember { mutableStateOf(false) }
+    var batteryExempt by remember {
+        mutableStateOf(
+            context.getSystemService(PowerManager::class.java)
+                .isIgnoringBatteryOptimizations(context.packageName),
+        )
+    }
+    var syncRequested by remember { mutableStateOf(false) }
+    // Shown only after a permission trip comes back empty-handed — the most
+    // likely cause by far is the restricted-settings block.
+    var showBlockedHelp by remember { mutableStateOf(false) }
+
     var paymentFailed by remember { mutableStateOf(Prefs.isPaymentFailed(context)) }
     DisposableEffect(Unit) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
@@ -110,8 +339,61 @@ fun ArmingScreen() {
         onDispose { Prefs.unregisterChangeListener(context, listener) }
     }
 
-    // Phase 2 hard lock: a failed charge freezes the whole app. Block the
-    // arming UI entirely and show only the Settle Up screen.
+    fun startEngineIfReady() {
+        if (Prefs.isLinked(context) && UsageAccess.isGranted(context)) {
+            HeuristicSpyService.start(context)
+        }
+    }
+
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* taunts are a bonus, not a dependency */ }
+
+    fun completeLink() {
+        linked = true
+        HeartbeatWorker.schedule(context)
+        HealthSyncWorker.schedule(context)
+        HeartbeatWorker.pingNow(context)
+        startEngineIfReady()
+        if (Build.VERSION.SDK_INT >= 33) {
+            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    // Deep link from the dashboard: pair without the user typing anything.
+    LaunchedEffect(pendingOtp) {
+        val code = pendingOtp ?: return@LaunchedEffect
+        if (linked) { onOtpConsumed(); return@LaunchedEffect }
+        linking = true
+        linkError = null
+        DeviceLinker.link(context, code)
+            .onSuccess { completeLink() }
+            .onFailure { linkError = "That link has expired. Generate a fresh one." }
+        linking = false
+        onOtpConsumed()
+    }
+
+    val healthPermissionLauncher = rememberLauncherForActivityResult(
+        PermissionController.createRequestPermissionResultContract(),
+    ) { granted -> healthGranted = granted.containsAll(HealthSyncWorker.REQUIRED_PERMISSIONS) }
+
+    val overlayLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        overlayOn = OverlayPermission.canDraw(context)
+        if (!overlayOn) showBlockedHelp = true
+    }
+
+    val usageAccessLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        monitoringOn = UsageAccess.isGranted(context)
+        // Came back without it: almost always the restricted-settings block,
+        // so say so instead of leaving them to guess.
+        if (!monitoringOn) showBlockedHelp = true
+        startEngineIfReady()
+    }
+
     if (paymentFailed) {
         SettleUpScreen(
             initialSettleUpUrl = Prefs.settleUpUrl(context),
@@ -120,61 +402,200 @@ fun ArmingScreen() {
         return
     }
 
-    // Once linked AND Usage Access is granted, the heuristic engine can run.
-    fun startEngineIfReady() {
-        if (Prefs.isLinked(context) && UsageAccess.isGranted(context)) {
-            HeuristicSpyService.start(context)
-        }
-    }
-
-    val healthPermissionLauncher = rememberLauncherForActivityResult(
-        PermissionController.createRequestPermissionResultContract(),
-    ) { granted -> healthGranted = granted.containsAll(HealthSyncWorker.REQUIRED_PERMISSIONS) }
-
-    val notificationLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { /* taunts are a bonus, not a dependency */ }
-
-    // Returning from the overlay settings screen has no result payload; re-check.
-    val overlayLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) { overlayOn = OverlayPermission.canDraw(context) }
-
-    // Returning from Usage Access settings: re-check and arm the engine.
-    val usageAccessLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) {
-        monitoringOn = UsageAccess.isGranted(context)
-        startEngineIfReady()
-    }
-
-    if (showRestrictedWarning) {
-        AlertDialog(
-            onDismissRequest = { showRestrictedWarning = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    showRestrictedWarning = false
-                    overlayLauncher.launch(OverlayPermission.requestIntent(context))
-                }) { Text("I understand — continue", color = Accent) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRestrictedWarning = false }) {
-                    Text("Cancel", color = Muted)
+    if (!linked) {
+        SignInScreen(
+            email = email,
+            onEmailChange = { email = it },
+            password = password,
+            onPasswordChange = { password = it },
+            busy = linking,
+            error = linkError,
+            onSignIn = {
+                linking = true
+                linkError = null
+                scope.launch {
+                    DeviceLinker.signIn(context, email, password)
+                        .onSuccess { password = ""; completeLink() }
+                        .onFailure { linkError = "Wrong email or password." }
+                    linking = false
                 }
             },
-            containerColor = MaterialTheme.colorScheme.surface,
-            title = { Text("One Android 15 trap first", color = Fg) },
-            text = {
-                Text(
-                    "If you sideloaded this APK, Android 15 hides the overlay toggle behind " +
-                        "\"restricted settings\". If the switch is greyed out: go to App info → " +
-                        "the ⋮ menu → \"Allow restricted settings\", then come back and grant it. " +
-                        "We warned you the escape routes were closing.",
-                    color = Muted,
+        )
+        return
+    }
+
+    // Usage Access is the only permission the meter genuinely cannot run
+    // without; the rest degrade features, not correctness.
+    val armed = monitoringOn
+    val steps = listOf(monitoringOn, overlayOn, healthGranted, batteryExempt)
+    val doneCount = steps.count { it }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Eyebrow("COSTLY / COMPANION")
+
+        Text(
+            if (armed) "SYSTEM ARMED" else "ALMOST ARMED",
+            color = if (armed) Accent else Gold,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 30.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            if (armed)
+                "The meter is live. Every confirmed doomscroll is billed, and every 12 hours we phone home. You wrote these terms."
+            else
+                "One permission away. Until it's granted nothing is metered and nothing is proven.",
+            color = Muted,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+        )
+
+        // Progress: four setup chores, and how many are behind you.
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            steps.forEach { ok ->
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .background(if (ok) Accent else Line, RoundedCornerShape(2.dp)),
                 )
-            },
+            }
+        }
+        Text(
+            "$doneCount of 4 complete",
+            color = Faint,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 11.sp,
+        )
+
+        Spacer(Modifier.height(4.dp))
+
+        Step(
+            number = 1,
+            title = "The eyes — Usage Access",
+            done = monitoringOn,
+            active = !monitoringOn,
+            body = "Lets us see which app is in the foreground; the gyroscope decides whether " +
+                "you're actually scrolling. We can't bill what we can't see, and revoking it " +
+                "mid-lock-in counts as desertion.",
+        ) {
+            PrimaryButton("Grant Usage Access") {
+                showBlockedHelp = false
+                usageAccessLauncher.launch(UsageAccess.settingsIntent())
+            }
+            if (showBlockedHelp) {
+                Spacer(Modifier.height(12.dp))
+                RestrictedSettingsHelp(context)
+            }
+        }
+
+        Step(
+            number = 2,
+            title = "The meter — draw over apps",
+            done = overlayOn,
+            active = monitoringOn && !overlayOn,
+            body = "The live meter floats over whatever you're scrolling, ticking your money " +
+                "away in real time. You can drag it aside. You cannot make it lie.",
+        ) {
+            PrimaryButton("Allow drawing over apps") {
+                showBlockedHelp = false
+                overlayLauncher.launch(OverlayPermission.requestIntent(context))
+            }
+            if (showBlockedHelp) {
+                Spacer(Modifier.height(12.dp))
+                RestrictedSettingsHelp(context)
+            }
+        }
+
+        Step(
+            number = 3,
+            title = "The legs — Health Connect",
+            done = healthGranted,
+            active = monitoringOn && overlayOn && !healthGranted,
+            body = "Proof you actually walked. No walk data, no refunds — your 80% sits in " +
+                "purgatory until the deadline eats it.",
+        ) {
+            val available =
+                HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
+            PrimaryButton(
+                if (available) "Grant health access" else "Health Connect not installed",
+                enabled = available,
+            ) { healthPermissionLauncher.launch(HealthSyncWorker.REQUIRED_PERMISSIONS) }
+        }
+
+        Step(
+            number = 4,
+            title = "Keep us alive — battery",
+            done = batteryExempt,
+            active = monitoringOn && overlayOn && healthGranted && !batteryExempt,
+            body = "Doze delays our 12-hour proof-of-life ping. If Android silences us for 24 " +
+                "hours during lock-in the server assumes you deleted us, and collects. This " +
+                "protects you, not us.",
+        ) {
+            PrimaryButton("Exempt from battery optimisation") {
+                context.startActivity(
+                    Intent(
+                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                        Uri.parse("package:${context.packageName}"),
+                    ),
+                )
+                batteryExempt = context.getSystemService(PowerManager::class.java)
+                    .isIgnoringBatteryOptimizations(context.packageName)
+            }
+        }
+
+        if (armed) {
+            Spacer(Modifier.height(8.dp))
+            PrimaryButton(
+                if (syncRequested) "Syncing — check the dashboard" else "Sync my walk now",
+                color = Gold,
+            ) {
+                HealthSyncWorker.syncNow(context)
+                syncRequested = true
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Deleting this app during lock-in does not delete the contract.",
+            color = Faint,
+            fontSize = 11.sp,
+            fontFamily = FontFamily.Monospace,
         )
     }
+}
+
+/**
+ * Sign in. Email and password, like every other app — because that is what a
+ * phone with a keyboard should ask for.
+ *
+ * What this replaced: a 6-digit code the user had to read off their dashboard
+ * on another screen and retype here. That pattern is for devices that cannot
+ * take input (TVs, consoles); on a phone it is pure ceremony, and it made
+ * signing in to your own account feel like pairing a printer.
+ *
+ * The password is sent once and never stored. What comes back and IS stored is
+ * a per-device secret, so this phone can be revoked on its own, and a stolen
+ * device never yields the account password.
+ */
+@Composable
+private fun SignInScreen(
+    email: String,
+    onEmailChange: (String) -> Unit,
+    password: String,
+    onPasswordChange: (String) -> Unit,
+    busy: Boolean,
+    error: String?,
+    onSignIn: () -> Unit,
+) {
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -184,233 +605,88 @@ fun ArmingScreen() {
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        Spacer(Modifier.height(36.dp))
+        Eyebrow("COSTLY / COMPANION")
+        Text("Sign in", color = Fg, fontSize = 32.sp, fontWeight = FontWeight.Bold)
         Text(
-            "COSTLY / COMPANION",
-            color = Accent,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
-            letterSpacing = 4.sp,
-        )
-
-        Text(
-            if (linked && monitoringOn) "SYSTEM ARMED" else "SYSTEM UNARMED",
-            color = if (linked && monitoringOn) Accent else Burn,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            if (linked && monitoringOn)
-                "Device linked to user $userId. Every confirmed doomscroll is billed. Every 12 hours we phone home. You know the terms — you wrote them."
-            else
-                "Nothing is being metered. Nothing is being proven. Your contract can still breach you for this. Finish the setup.",
+            "Use the account you signed the contract with. This app is only the eyes " +
+                "and the legs — the rate, the wishlist and the card all live on the web.",
             color = Muted,
             fontSize = 14.sp,
+            lineHeight = 20.sp,
         )
 
-        // ── Identity ──────────────────────────────────────────────────────
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().border(1.dp, Line, RoundedCornerShape(16.dp)),
         ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "1 · Link this device" + if (linked) " — linked" else "",
-                    color = if (linked) Accent else MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    "Open your web dashboard, generate a 6-digit link code, and enter it " +
-                        "here. We trade it for a device key — your user ID never rides in a " +
-                        "request again.",
-                    color = Muted, fontSize = 12.sp,
-                )
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
-                    value = otp,
-                    onValueChange = { if (it.length <= 6 && it.all(Char::isDigit)) otp = it },
+                    value = email,
+                    onValueChange = onEmailChange,
                     singleLine = true,
-                    enabled = !linking,
-                    label = { Text("6-digit code") },
+                    enabled = !busy,
+                    label = { Text("Email") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Accent,
-                        unfocusedBorderColor = Muted,
+                        unfocusedBorderColor = Line,
                     ),
                 )
-                linkError?.let { Text(it, color = Burn, fontSize = 12.sp) }
-                Button(
-                    onClick = {
-                        linking = true
-                        linkError = null
-                        scope.launch {
-                            val result = DeviceLinker.link(context, otp)
-                            linking = false
-                            result
-                                .onSuccess {
-                                    otp = ""
-                                    userId = Prefs.userId(context) ?: ""
-                                    linked = true
-                                    HeartbeatWorker.schedule(context)
-                                    HealthSyncWorker.schedule(context)
-                                    HeartbeatWorker.pingNow(context)
-                                    startEngineIfReady()
-                                    if (Build.VERSION.SDK_INT >= 33) {
-                                        notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                    }
-                                }
-                                .onFailure { linkError = "Link failed. Check the code — it expires fast." }
-                        }
-                    },
-                    enabled = otp.length == 6 && !linking,
-                    colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = onPasswordChange,
+                    singleLine = true,
+                    enabled = !busy,
+                    label = { Text("Password") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text(if (linking) "Linking…" else if (linked) "Re-link" else "Link device") }
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Accent,
+                        unfocusedBorderColor = Line,
+                    ),
+                )
+                error?.let { Text(it, color = Danger, fontSize = 13.sp) }
+                PrimaryButton(
+                    if (busy) "Signing in…" else "Sign in",
+                    enabled = !busy && email.contains("@") && password.isNotEmpty(),
+                    onClick = onSignIn,
+                )
             }
         }
 
-        // ── Usage Access (the eyes) ───────────────────────────────────────
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp),
-        ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "2 · The eyes" + if (monitoringOn) " — granted" else "",
-                    color = if (monitoringOn) Accent else MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
+        TextButton(
+            onClick = {
+                context.startActivity(
+                    Intent(Intent.ACTION_VIEW, Uri.parse(dashboardUrl()))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 )
-                Text(
-                    "Usage Access lets us see which app is in the foreground — and the " +
-                        "gyroscope tells us whether you're actually doomscrolling. We can't " +
-                        "bill what we can't see. Revoking this mid-lock-in counts as desertion.",
-                    color = Muted, fontSize = 12.sp,
-                )
-                Button(
-                    onClick = { usageAccessLauncher.launch(UsageAccess.settingsIntent()) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Open usage-access settings") }
-            }
-        }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("No account yet? Sign the contract on the web", color = Muted, fontSize = 13.sp) }
 
-        // ── Overlay ───────────────────────────────────────────────────────
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp),
-        ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "3 · The meter" + if (overlayOn) " — granted" else "",
-                    color = if (overlayOn) Accent else MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    "The live meter floats over the app you're doomscrolling, ticking your " +
-                        "money away in real time. You can drag it aside. You cannot make it lie.",
-                    color = Muted, fontSize = 12.sp,
-                )
-                Button(
-                    onClick = {
-                        // Android 15 hides the toggle behind restricted settings for
-                        // sideloaded apps — warn first, then bounce to settings.
-                        if (Build.VERSION.SDK_INT >= 35 && !overlayOn) {
-                            showRestrictedWarning = true
-                        } else {
-                            overlayLauncher.launch(OverlayPermission.requestIntent(context))
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Allow drawing over apps") }
-            }
-        }
-
-        // ── Health Connect ────────────────────────────────────────────────
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp),
-        ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "4 · The legs" + if (healthGranted) " — granted" else "",
-                    color = if (healthGranted) Accent else MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    "Health Connect proves you actually walked. No walk data, no refunds — " +
-                        "your 80% stays in purgatory until the deadline eats it.",
-                    color = Muted, fontSize = 12.sp,
-                )
-                Button(
-                    onClick = {
-                        if (HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE) {
-                            healthPermissionLauncher.launch(HealthSyncWorker.REQUIRED_PERMISSIONS)
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Grant health access") }
-            }
-        }
-
-        // ── Battery exemption + manual sync ───────────────────────────────
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp),
-        ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("5 · Keep us alive", color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold)
-                Text(
-                    "Doze mode delays our 12-hour proof-of-life ping. If Android silences us " +
-                        "for 24 hours during lock-in, the server assumes you deleted us — and " +
-                        "collects. Exempt us from battery optimization. Protect yourself.",
-                    color = Muted, fontSize = 12.sp,
-                )
-                Button(
-                    onClick = {
-                        val pm = context.getSystemService(PowerManager::class.java)
-                        if (!pm.isIgnoringBatteryOptimizations(context.packageName)) {
-                            context.startActivity(
-                                Intent(
-                                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                    Uri.parse("package:${context.packageName}"),
-                                ),
-                            )
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Exempt from battery optimization") }
-
-                Button(
-                    onClick = {
-                        HealthSyncWorker.syncNow(context)
-                        syncRequested = true
-                    },
-                    enabled = linked,
-                    colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Bg),
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(if (syncRequested) "Syncing — check the dashboard" else "Sync my walk NOW") }
-            }
-        }
-
+        Spacer(Modifier.height(8.dp))
         Text(
-            "Deleting this app during lock-in does not delete the contract.",
-            color = Muted,
+            "Nothing is metered until this phone is signed in.",
+            color = Faint,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
 
+/** Strips the API base back to an origin so we can point at the dashboard. */
+private fun dashboardUrl(): String =
+    app.costly.companion.BuildConfig.API_BASE_URL.trimEnd('/') + "/dashboard"
+
 /**
  * The Phase 2 hard-lock. Shown instead of the whole arming UI when a charge
  * has failed. There is no path back to arming from here — only settling.
- *
- * If a settleUpUrl already exists we open it directly; otherwise (the common
- * case — bare PaymentIntents have no hosted URL) we mint a Stripe Checkout
- * Session on demand via /api/stripe/create-checkout and launch it.
  */
 @Composable
 fun SettleUpScreen(initialSettleUpUrl: String?, onOpenUrl: (String) -> Unit) {
@@ -426,13 +702,8 @@ fun SettleUpScreen(initialSettleUpUrl: String?, onOpenUrl: (String) -> Unit) {
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
-            "PAYMENT FAILED",
-            color = Burn,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
-            letterSpacing = 4.sp,
-        )
+        Spacer(Modifier.height(28.dp))
+        Eyebrow("PAYMENT FAILED", Burn)
         Text(
             "SETTLE UP",
             color = Burn,
@@ -445,48 +716,43 @@ fun SettleUpScreen(initialSettleUpUrl: String?, onOpenUrl: (String) -> Unit) {
                 "no arming, no mercy — until the balance clears. You knew the terms.",
             color = Muted,
             fontSize = 14.sp,
+            lineHeight = 20.sp,
         )
 
         val existing = url
         if (existing != null) {
-            Button(
-                onClick = { onOpenUrl(existing) },
-                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Settle up now") }
+            PrimaryButton("Settle up now") { onOpenUrl(existing) }
         } else {
-            Button(
-                onClick = {
-                    generating = true
-                    error = null
-                    scope.launch {
-                        runCatching { Network.api.createCheckout().url }
-                            .onSuccess { generated ->
-                                generating = false
-                                if (generated != null) {
-                                    url = generated
-                                    onOpenUrl(generated)
-                                } else {
-                                    error = "Couldn't create a payment link. Try again."
-                                }
-                            }
-                            .onFailure {
-                                generating = false
-                                error = "Couldn't reach the server. Try again."
-                            }
-                    }
-                },
+            PrimaryButton(
+                if (generating) "Generating…" else "Generate payment link",
                 enabled = !generating,
-                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(if (generating) "Generating…" else "Generate payment link") }
+            ) {
+                generating = true
+                error = null
+                scope.launch {
+                    runCatching { Network.api.createCheckout().url }
+                        .onSuccess { generated ->
+                            generating = false
+                            if (generated != null) {
+                                url = generated
+                                onOpenUrl(generated)
+                            } else {
+                                error = "Couldn't create a payment link. Try again."
+                            }
+                        }
+                        .onFailure {
+                            generating = false
+                            error = "Couldn't reach the server. Try again."
+                        }
+                }
+            }
         }
 
-        error?.let { Text(it, color = Burn, fontSize = 12.sp) }
+        error?.let { Text(it, color = Danger, fontSize = 13.sp) }
 
         Text(
             "Once you've paid, this unlocks itself.",
-            color = Muted,
+            color = Faint,
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
         )

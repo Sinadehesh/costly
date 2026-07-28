@@ -66,65 +66,28 @@ const CARD = 'rounded-[var(--radius-card)] border-2 border-line bg-surface p-5';
 const INNER = 'rounded-xl border border-line bg-surface-2 p-3';
 
 /**
- * The pairing code. Without this the Android companion can never link, so
- * nothing tracks and nothing bills — it's the bridge between the web account
- * and the device.
+ * How to arm the companion. There is no pairing code here any more: the app
+ * signs in with the same email and password as this dashboard, like every
+ * other app on the phone. Codes are a pattern for devices that cannot take
+ * input — TVs, consoles — and asking someone to transcribe six digits between
+ * two of their own screens to reach their own account was ceremony, not
+ * security. The per-device secret underneath is unchanged; only the way the
+ * phone obtains it did.
  */
-function PairingCode() {
-  const [otp, setOtp] = useState<string | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState(0);
-  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
-
-  useEffect(() => {
-    if (secondsLeft <= 0) return;
-    const id = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(id);
-  }, [secondsLeft]);
-
-  useEffect(() => {
-    if (otp && secondsLeft === 0) setOtp(null);
-  }, [otp, secondsLeft]);
-
-  async function generate() {
-    setState('loading');
-    try {
-      const res = await fetch('/api/device/link/otp', { method: 'POST' });
-      if (!res.ok) throw new Error('otp_failed');
-      const body = (await res.json()) as { otp: string; expiresInSeconds: number };
-      setOtp(body.otp);
-      setSecondsLeft(body.expiresInSeconds);
-      setState('idle');
-    } catch {
-      setState('error');
-    }
-  }
-
+function ArmingInstructions() {
   return (
-    <div className={`mt-3 ${INNER}`}>
-      {otp ? (
-        <>
-          <p className={LABEL}>Pairing code — type this into the app</p>
-          <p className="money mt-1 text-3xl font-bold tracking-[0.3em] text-accent">{otp}</p>
-          <p className="money mt-1 text-[10px] text-faint">
-            expires in {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
-          </p>
-        </>
-      ) : (
-        <button
-          type="button"
-          onClick={generate}
-          disabled={state === 'loading'}
-          className="w-full rounded-lg border-2 border-accent-dim bg-bg px-3 py-2 font-mono text-xs font-bold text-accent transition hover:border-accent disabled:opacity-50"
-        >
-          {state === 'loading' ? 'GENERATING…' : '> Generate pairing code_'}
-        </button>
-      )}
-      {state === 'error' && (
-        <p className="mt-2 font-mono text-[10px] text-danger">
-          Could not generate a code. Are you signed in?
-        </p>
-      )}
-    </div>
+    <ol className={`mt-3 ${INNER} space-y-2`}>
+      {[
+        'Install the Costly companion APK on your Android phone.',
+        'Open it and sign in with this same email and password.',
+        'Grant Usage Access, then the other permissions it asks for, one at a time.',
+      ].map((line, i) => (
+        <li key={line} className="flex gap-3 text-sm text-muted">
+          <span className="money shrink-0 text-accent">{i + 1}.</span>
+          <span>{line}</span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -137,13 +100,21 @@ function useTickingClock(): string {
   return now.toLocaleTimeString('en-GB', { hour12: false });
 }
 
-function Empty({ children, cta }: { children: React.ReactNode; cta: string }) {
+function Empty({
+  children,
+  cta,
+  href = '/onboarding',
+}: {
+  children: React.ReactNode;
+  cta: string;
+  href?: string;
+}) {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-5 px-6">
       <CatWidget penaltyCents={0} armed={false} />
       <p className="text-center leading-relaxed text-muted">{children}</p>
       <Link
-        href="/onboarding"
+        href={href}
         className="rounded-[var(--radius-card)] border-2 border-accent-dim bg-accent px-6 py-3 font-extrabold text-bg transition hover:brightness-110"
       >
         {cta}
@@ -178,7 +149,7 @@ export default function DashboardPage() {
   }
   if (error === 'signed_out') {
     return (
-      <Empty cta="SIGN BACK IN">
+      <Empty cta="SIGN BACK IN" href="/signin">
         Your session expired. The debts did not. Sign back in to look at them.
       </Empty>
     );
@@ -354,7 +325,7 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-            <PairingCode />
+            <ArmingInstructions />
           </section>
         )}
 

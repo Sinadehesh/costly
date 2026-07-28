@@ -58,6 +58,12 @@ model User {
   updatedAt DateTime @updatedAt
   email     String   @unique
 
+  // Ordinary email+password sign-in. Nullable because accounts created before
+  // auth existed have none; those users set one the next time they onboard.
+  // The Android app signs in with these and is handed a per-device secret —
+  // it never stores the password, and there is no code to transcribe.
+  passwordHash String?
+
   // ── Rate: the user states what one hour of their life is worth ─────────
   hourlyRateCents        Int // set explicitly at onboarding, no guessing
   penaltyRateCentsPerMin Int // hourlyRateCents / 60, stored to keep billing stable

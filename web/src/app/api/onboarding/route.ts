@@ -126,7 +126,12 @@ async function onboard(body: z.infer<typeof bodySchema>) {
 
   const existing = await prisma.user.findUnique({
     where: { email: body.email },
-    select: { id: true, stripeCustomerId: true, stripePaymentMethodId: true },
+    select: {
+      id: true,
+      stripeCustomerId: true,
+      stripePaymentMethodId: true,
+      passwordHash: true,
+    },
   });
 
   // THE TERMS ARE SEALED FOR THE LOCK-IN. Re-onboarding used to close the
@@ -142,7 +147,12 @@ async function onboard(body: z.infer<typeof bodySchema>) {
   // is created at step 3, the card vaults at step 4), so an abandoned
   // onboarding must not brick the address forever. They were never actually
   // under contract — the dead man's switch only arms on the first ping.
-  if (existing?.stripePaymentMethodId) {
+  //
+  // Second carve-out: an account with no password predates sign-in and has no
+  // way back in at all — refusing it here would lock that user out of their own
+  // dashboard permanently, which is strictly worse than the loophole. The
+  // loophole closes by itself, because this run sets their password.
+  if (existing?.stripePaymentMethodId && existing.passwordHash) {
     const sealed = await prisma.commitmentContract.findFirst({
       where: { userId: existing.id, status: 'ACTIVE', lockinEndsAt: { gt: new Date() } },
       select: { id: true, lockinEndsAt: true },

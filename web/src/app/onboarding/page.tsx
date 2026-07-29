@@ -95,13 +95,43 @@ const ctaClass =
   'w-full rounded-xl border-4 border-gray-800 bg-emerald-500 px-6 py-4 font-extrabold text-zinc-950 transition enabled:hover:brightness-110 disabled:opacity-30';
 const backClass = 'rounded-xl border-4 border-gray-800 bg-zinc-900 px-6 py-4 font-bold text-zinc-400';
 
+/**
+ * The mechanic, in the cat's own voice, one beat per tap. Each beat carries the
+ * cat state it should be wearing while it says the line, so the mascot gets
+ * visibly greedier as the deal gets worse — the explanation and the warning
+ * are the same object.
+ */
+const BEATS: { line: string; cents: number; walkingPct?: number }[] = [
+  { line: 'You tell me what one hour of your life is worth.', cents: 0 },
+  {
+    line: 'Open Instagram and I start charging that rate to your card. By the minute.',
+    cents: 60,
+  },
+  {
+    line: 'When you close it, 20% is mine. Permanently. That part never comes back — neither did the time.',
+    cents: 640,
+  },
+  {
+    line: 'The other 80% I only hold for 24 hours. Walk two minutes for every minute you scrolled and you get all of it back.',
+    cents: 3200,
+    walkingPct: 100,
+  },
+  { line: "Don't walk, and I keep that too.", cents: 2400 },
+];
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Step 1
+  // Step 1 — the explainer. `beat` is how far through the cat's account of
+  // the mechanic the user has tapped; the continue button stays dead until
+  // they reach the end AND tick the box.
+  const [beat, setBeat] = useState(0);
+  const [moneyUnderstood, setMoneyUnderstood] = useState(false);
+
+  // Step 2
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [hourlyEuros, setHourlyEuros] = useState('');
@@ -194,7 +224,7 @@ export default function OnboardingPage() {
       window.localStorage.setItem('costly:userId', newUserId);
       setUserId(newUserId);
       setClientSecret(secret);
-      setStep(4);
+      setStep(5);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something failed. It was not us.');
     } finally {
@@ -207,10 +237,10 @@ export default function OnboardingPage() {
       {/* Terminal header + progress */}
       <header className="rounded-xl border-4 border-gray-800 bg-black px-4 py-3">
         <p className="font-mono text-xs tracking-[0.25em] text-emerald-400">
-          COSTLY://ONBOARDING · STEP {step}/4
+          COSTLY://ONBOARDING · STEP {step}/5
         </p>
         <div className="mt-3 flex gap-1.5">
-          {[1, 2, 3, 4].map((s) => (
+          {[1, 2, 3, 4, 5].map((s) => (
             <div
               key={s}
               className={`h-2 flex-1 rounded ${s <= step ? 'bg-emerald-500' : 'bg-zinc-800'}`}
@@ -225,7 +255,89 @@ export default function OnboardingPage() {
         </div>
       )}
 
+      {/* ── Step 1 · HOW THIS WORKS ────────────────────────────────────────
+          Two testers in a row proved this screen had to exist. One didn't
+          understand the product until she was asked to read the text; another
+          said it outright: "some people could mistake it and think this money
+          is not real money and get fucked — make it very clear that it's your
+          real money and your credit card."
+
+          So it is revealed one beat at a time and gated on a tap. You cannot
+          skim past a sentence that hasn't rendered yet, which is the only
+          layout trick that reliably makes someone read. The cat gets hungrier
+          as it explains, so the thing holding your attention is also the thing
+          delivering the warning. */}
       {step === 1 && (
+        <section className="mt-6 space-y-5">
+          <CatWidget
+            penaltyCents={BEATS[beat].cents}
+            walkingPct={BEATS[beat].walkingPct}
+            wishlistItem="PlayStation"
+          />
+
+          <div className={cardClass}>
+            <h1 className="text-2xl font-extrabold text-white">How this works</h1>
+
+            <ol className="mt-4 space-y-3">
+              {BEATS.slice(0, beat + 1).map((b, i) => (
+                <li key={b.line} className="flex gap-3">
+                  <span className="font-mono text-sm text-emerald-500">{i + 1}</span>
+                  <p className="text-[15px] leading-relaxed text-zinc-200">{b.line}</p>
+                </li>
+              ))}
+            </ol>
+
+            {beat < BEATS.length - 1 ? (
+              <button
+                onClick={() => setBeat((b) => b + 1)}
+                className="mt-5 w-full rounded-xl border-4 border-gray-800 bg-zinc-900 px-6 py-3 font-bold text-emerald-400"
+              >
+                Go on…
+              </button>
+            ) : (
+              <>
+                {/* The sentence the whole screen exists for. */}
+                <div className="mt-5 rounded-xl border-4 border-red-600 bg-red-950/30 p-4">
+                  <p className="font-mono text-[10px] tracking-widest text-red-500">
+                    THIS IS NOT A GAME
+                  </p>
+                  <p className="mt-2 text-[15px] leading-relaxed font-semibold text-white">
+                    Real money. Your real credit card. Costly charges it
+                    automatically, without asking again, every time you scroll.
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+                    Nobody is pretending. If that is not what you want, close
+                    this page — that costs nothing, and it is a completely
+                    reasonable thing to do.
+                  </p>
+                </div>
+
+                <label className="mt-4 flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={moneyUnderstood}
+                    onChange={(e) => setMoneyUnderstood(e.target.checked)}
+                    className="mt-1 h-5 w-5 shrink-0 accent-emerald-500"
+                  />
+                  <span className="text-sm leading-snug text-zinc-300">
+                    I understand Costly will charge my real card with real money.
+                  </span>
+                </label>
+              </>
+            )}
+          </div>
+
+          <button
+            disabled={beat < BEATS.length - 1 || !moneyUnderstood}
+            onClick={() => setStep(2)}
+            className={ctaClass}
+          >
+            {moneyUnderstood ? 'I UNDERSTAND — CONTINUE' : 'READ IT FIRST'}
+          </button>
+        </section>
+      )}
+
+      {step === 2 && (
         <section className="mt-6 space-y-5">
           <CatWidget penaltyCents={0} className="-rotate-1" />
           <div className={cardClass}>
@@ -294,35 +406,24 @@ export default function OnboardingPage() {
           <div className={cardClass}>
             <h2 className="text-xl font-extrabold text-white">Free minutes each day</h2>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-              Time the meter ignores. It resets once a day — not once a
-              session, so closing and reopening the app buys you nothing.
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-              <strong className="text-white">Choose carefully.</strong> This
-              number is locked for the whole contract. You cannot raise it on a
-              bad evening, because a limit you can move at the moment you want
-              to move it is not a limit. It changes when your contract ends,
-              and not before.
+              Time the meter ignores. Resets daily, not per session.
             </p>
 
-            <div className="mt-4 rounded-lg border-2 border-amber-900/70 bg-amber-950/20 p-3">
-              <p className="font-mono text-[10px] tracking-widest text-amber-500">
-                READ THIS FIRST
-              </p>
-              <p className="mt-1.5 text-sm leading-relaxed text-zinc-300">
-                There is no healthy daily dose of Instagram. It is engineered to
-                be hard to stop — endless feed, autoplay, variable rewards — and
-                the cost lands on your attention, your sleep and your mood.
-                &ldquo;Normal usage&rdquo; is a number the app taught you to
-                accept.
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-zinc-300">
-                Pick <strong className="text-white">0</strong>. If you truly need
-                to keep up with friends,{' '}
-                <strong className="text-white">5 minutes</strong> covers their
-                stories and nothing else.
-              </p>
-            </div>
+            {/* Short on purpose — the long version tested as a wall people
+                skipped. It names the excuse instead of arguing with it: one
+                tester doomscrolls "to calm down", and the reason is always
+                real, which is exactly why the habit holds. */}
+            <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+              Every habit like this comes with a good reason attached — the
+              news, your friends&apos; stories, winding down. They&apos;re real.
+              They all have another way in.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Pick <strong className="text-white">0</strong>, or{' '}
+              <strong className="text-white">5</strong> for the stories. Locked
+              for the whole contract — a limit you can raise on a bad evening is
+              not a limit.
+            </p>
 
             <div className="mt-4 grid grid-cols-5 gap-1.5">
               {DAILY_FREE_MINUTE_OPTIONS.map((m) => (
@@ -344,43 +445,31 @@ export default function OnboardingPage() {
               MINUTES PER DAY · FREE
             </p>
 
-            <p className="mt-4 text-sm leading-relaxed text-zinc-400">
-              {dailyFreeMinutes === 0 ? (
-                <>
-                  Zero. Every second is billable from the moment you open it.
-                  The cat is visibly disappointed in this choice.
-                </>
-              ) : dailyFreeMinutes <= 5 ? (
-                <>
-                  {dailyFreeMinutes} minutes. Enough for the stories, not enough
-                  for the hole. Acceptable.
-                </>
-              ) : (
-                <>
-                  {dailyFreeMinutes} free minutes a day is{' '}
-                  <span className="font-mono tabular-nums text-white">
-                    {Math.round((dailyFreeMinutes * 365) / 60)} hours
-                  </span>{' '}
-                  a year that we agreed not to charge you for.
-                  {hourlyCents > 0 && (
-                    <>
-                      {' '}
-                      At your rate that is{' '}
-                      <span className="font-mono tabular-nums text-emerald-400">
-                        {euros(Math.round(dailyFreeMinutes * 365 * perMinuteCents))}
-                      </span>{' '}
-                      of meter you switched off. The cat is thrilled. That should
-                      worry you.
-                    </>
-                  )}
-                </>
-              )}
-            </p>
+            {/* A tester asked for exactly this, in exactly this colour: the
+                yearly figure is the number that lands, because minutes a day
+                sound free and hours a year do not. */}
+            {dailyFreeMinutes === 0 ? (
+              <p className="mt-4 text-sm leading-relaxed text-zinc-400">
+                Zero. Every second is billable from the moment you open it.
+              </p>
+            ) : (
+              <div className="mt-4 rounded-lg border-2 border-red-900 bg-red-950/20 p-4">
+                <p className="font-mono text-[10px] tracking-widest text-red-500">
+                  WHAT YOU ARE AGREEING TO LOSE
+                </p>
+                <p className="mt-1 font-mono text-3xl font-bold tabular-nums text-red-500">
+                  {Math.round((dailyFreeMinutes * 365) / 60)} hours a year
+                </p>
+                <p className="mt-1 text-sm text-zinc-400">
+                  {dailyFreeMinutes} minutes every day, free of charge, forever.
+                </p>
+              </div>
+            )}
           </div>
 
           <button
             disabled={!email.includes('@') || password.length < 8 || hourlyCents <= 0}
-            onClick={() => setStep(2)}
+            onClick={() => setStep(3)}
             className={ctaClass}
           >
             CONTINUE
@@ -388,7 +477,7 @@ export default function OnboardingPage() {
         </section>
       )}
 
-      {step === 2 && (
+      {step === 3 && (
         <section className="mt-6 space-y-5">
           <div className={cardClass}>
             <h1 className="text-2xl font-extrabold text-white">
@@ -491,12 +580,12 @@ export default function OnboardingPage() {
             )}
           </div>
           <div className="flex gap-3">
-            <button onClick={() => setStep(1)} className={backClass}>
+            <button onClick={() => setStep(2)} className={backClass}>
               BACK
             </button>
             <button
               disabled={halfFilled}
-              onClick={() => setStep(3)}
+              onClick={() => setStep(4)}
               className={`${ctaClass} flex-1`}
             >
               {filledWishes.length > 0 ? `LOCK IN ${filledWishes.length} HOSTAGE${filledWishes.length > 1 ? 'S' : ''}` : 'SKIP — NOTHING IS SACRED'}
@@ -505,7 +594,7 @@ export default function OnboardingPage() {
         </section>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <section className="mt-6 space-y-5">
           <div className={cardClass}>
             <h1 className="text-2xl font-extrabold text-white">The Contract</h1>
@@ -599,7 +688,7 @@ export default function OnboardingPage() {
             </p>
           </div>
           <div className="flex gap-3">
-            <button onClick={() => setStep(2)} className={backClass}>
+            <button onClick={() => setStep(3)} className={backClass}>
               BACK
             </button>
             <button
@@ -613,7 +702,7 @@ export default function OnboardingPage() {
         </section>
       )}
 
-      {step === 4 && clientSecret && userId && (
+      {step === 5 && clientSecret && userId && (
         <section className="mt-6 space-y-5">
           <div className={cardClass}>
             <h1 className="text-2xl font-extrabold text-white">The Vault</h1>

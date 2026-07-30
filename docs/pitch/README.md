@@ -9,6 +9,7 @@ partner meetings. Founder: **Sina Dehesh** (Milan).
 | `02-deck.md` | 13-slide deck, slide by slide, with speaker notes | The 8-minute pitch; hand to a designer or render as slides |
 | `03-qa-prep.md` | The hostile questions and the answers | Prep before any partner call — read this last, out loud |
 | `04-application-kit.md` | What each programme actually accepts, plus the one-pager | Deciding what to attach before you write it |
+| `05-founder-slide.md` | The "who am I" slide, plus what to claim about Guardbar | Building the founder slide |
 | `build-pdf.py` | Renders all of the above into one A4 PDF | Sending the set to a human |
 
 ```bash

@@ -109,7 +109,7 @@ const BEATS: { line: string; cents: number; walkingPct?: number }[] = [
     cents: 60,
   },
   {
-    line: 'When you close it, 20% is mine. Permanently. That part never comes back. neither did the time.',
+    line: 'When you close it, 20% is mine. Permanently. That part never comes back, and neither did the time.',
     cents: 640,
   },
   {
@@ -311,7 +311,7 @@ export default function OnboardingPage() {
           Two testers in a row proved this screen had to exist. One didn't
           understand the product until she was asked to read the text; another
           said it outright: "some people could mistake it and think this money
-          is not real money and get fucked. make it very clear that it's your
+          is not real money and get fucked, so make it very clear that it's your
           real money and your credit card."
 
           So it is revealed one beat at a time and gated on a tap. You cannot
@@ -359,7 +359,7 @@ export default function OnboardingPage() {
                   </p>
                   <p className="mt-2 text-sm leading-relaxed text-zinc-300">
                     Nobody is pretending. If that is not what you want, close
-                    this page. that costs nothing, and it is a completely
+                    this page, which costs nothing and is a completely
                     reasonable thing to do.
                   </p>
                 </div>
@@ -411,7 +411,7 @@ export default function OnboardingPage() {
               How much do you scroll now?
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-              Roughly. Your phone already knows. this is just so you can see it.
+              Roughly. Your phone already knows; this is just so you can see it.
             </p>
 
             <div className="mt-4 grid grid-cols-6 gap-1.5">

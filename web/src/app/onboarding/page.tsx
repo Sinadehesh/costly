@@ -131,6 +131,11 @@ export default function OnboardingPage() {
   const [beat, setBeat] = useState(0);
   const [moneyUnderstood, setMoneyUnderstood] = useState(false);
 
+  // Step 2. Current usage is asked FIRST: nine interviews all opened with
+  // "how much do you use Instagram" and every single person answered in a
+  // second, so it is free input — and it makes the rate question mean
+  // something instead of arriving cold.
+  const [usageHours, setUsageHours] = useState<number | null>(null);
   // Step 2
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -151,6 +156,10 @@ export default function OnboardingPage() {
   const [userId, setUserId] = useState<string | null>(null);
 
   const hourlyCents = Math.round(Number(hourlyEuros || 0) * 100);
+  // Time cost of the CURRENT habit, in the two horizons a tester asked for:
+  // "on this rate you will waste 50 hours this year, or 2 years of your life".
+  const daysPerYear = usageHours ? Math.round((usageHours * 365) / 24) : 0;
+  const yearsPerDecade = usageHours ? (usageHours * 3650) / 24 / 365 : 0;
   const perMinuteCents = Math.max(1, Math.round(hourlyCents / 60));
 
   // A row counts only when BOTH fields are filled; a half-filled row is the
@@ -340,6 +349,80 @@ export default function OnboardingPage() {
       {step === 2 && (
         <section className="mt-6 space-y-5">
           <CatWidget penaltyCents={0} className="-rotate-1" />
+
+          {/* ── Current usage → the time cost ──────────────────────────────
+              The most-validated element in the whole cohort. One tester asked
+              for the yearly figure in red; another checked EVERY option just to
+              compare the hours and said "I appreciate how much it is in the
+              whole year, it teaches me so much" — then asked for exactly this:
+              a forward-looking number, "at this rate you will waste 50 hours
+              this year, or 2 years of your life".
+
+              Time is the headline, money is the footnote. She reacted to the
+              hours, not the euros — and the euro figure here is the WORTH of
+              that time at her own rate, not a bill we intend to send. Caps and
+              the free allowance mean the two are not the same, and implying
+              otherwise would be a lie the first statement would expose. */}
+          <div className={cardClass}>
+            <h1 className="text-2xl font-extrabold text-white">
+              How much do you scroll now?
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Roughly. Your phone already knows — this is just so you can see it.
+            </p>
+
+            <div className="mt-4 grid grid-cols-6 gap-1.5">
+              {[0.5, 1, 1.5, 2, 3, 4].map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => setUsageHours(h)}
+                  className={`rounded-lg border-2 py-3 font-mono text-xs font-bold tabular-nums transition ${
+                    usageHours === h
+                      ? 'border-emerald-500 bg-emerald-500 text-zinc-950'
+                      : 'border-gray-800 bg-zinc-950 text-zinc-400 hover:border-gray-700'
+                  }`}
+                >
+                  {h === 4 ? '4h+' : h < 1 ? '30m' : `${h}h`}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-center font-mono text-[10px] tracking-widest text-zinc-600">
+              PER DAY
+            </p>
+
+            {usageHours !== null && (
+              <div className="mt-4 rounded-lg border-2 border-red-900 bg-red-950/20 p-4">
+                <p className="font-mono text-[10px] tracking-widest text-red-500">
+                  AT THIS RATE
+                </p>
+                <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-red-500">
+                  {daysPerYear} days
+                </p>
+                <p className="mt-1 text-sm text-zinc-300">
+                  of your life, this year. Awake, holding your phone.
+                </p>
+                <p className="mt-2 text-sm text-zinc-400">
+                  Keep it up for a decade and that is{' '}
+                  <strong className="font-mono text-white">
+                    {yearsPerDecade.toFixed(1)} years
+                  </strong>{' '}
+                  gone.
+                  {hourlyCents > 0 && (
+                    <>
+                      {' '}
+                      At the rate you just set, that time is worth{' '}
+                      <span className="font-mono text-white">
+                        {euros(Math.round(usageHours * 365 * hourlyCents))}
+                      </span>{' '}
+                      a year to you.
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
+          </div>
+
           <div className={cardClass}>
             <h1 className="text-2xl font-extrabold text-white">
               What is one hour of your life worth?

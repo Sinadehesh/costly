@@ -108,6 +108,14 @@ class HeuristicSpyService : Service() {
     private var msSinceFlush = 0L
     private var capped = false
 
+    /**
+     * Debug-only local test mode. Everything about detection, the meter and
+     * the overlay runs exactly as in a real session; the only difference is
+     * that no request is ever made and no money is ever at stake. Read once
+     * per session so the mode cannot flip mid-session.
+     */
+    private var godMode = false
+
     private var sensorJob: Job? = null
     private var networkJob: Job? = null
     private var billingJob: Job? = null
@@ -146,22 +154,25 @@ class HeuristicSpyService : Service() {
     // ── Session lifecycle (all *Locked functions require [mutex]) ─────────
 
     private suspend fun startSessionLocked(pkg: String) {
-        // Unlinked, or hard-locked into Settle Up → don't even try to bill.
-        if (!Prefs.isLinked(this) || Prefs.isPaymentFailed(this)) return
+        godMode = Prefs.isGodMode(this)
+
+        // God mode needs no account and no server, so the usual gates are the
+        // one thing it skips. Everything below this point behaves identically.
+        if (!godMode && (!Prefs.isLinked(this) || Prefs.isPaymentFailed(this))) return
 
         // A cached id means we're resuming a session that survived a process
         // kill — no /start round-trip, so no fresh allowance figure; fall back
         // to the last one a device ping cached.
-        val cachedId = Prefs.activeSessionId(this)
-        val started = if (cachedId != null) null else runCatching {
+        val cachedId = if (godMode) null else Prefs.activeSessionId(this)
+        val started = if (godMode || cachedId != null) null else runCatching {
             Network.api.startSession(StartSessionRequest(appPackage = pkg))
         }.getOrElse {
             Log.w(TAG, "start failed (offline?) — session not billed", it)
             return
         }
-        val id = cachedId ?: started!!.sessionId
+        val id = cachedId ?: started?.sessionId ?: "godmode-local"
 
-        Prefs.setActiveSessionId(this, id)
+        if (!godMode) Prefs.setActiveSessionId(this, id)
         sessionId = id
         sessionPackage = pkg
         sessionActiveSeconds = 0
@@ -201,9 +212,13 @@ class HeuristicSpyService : Service() {
         networkDetector.reset()
 
         flushLocked(force = true)
-        runCatching { Network.api.endSession(id) }
-            .onSuccess { Log.i(TAG, "Session $id ended: ${it.status}") }
-            .onFailure { Log.w(TAG, "end failed for $id — server sweep is the backstop", it) }
+        if (godMode) {
+            Log.i(TAG, "God mode session ended locally; nothing was billed")
+        } else {
+            runCatching { Network.api.endSession(id) }
+                .onSuccess { Log.i(TAG, "Session $id ended: ${it.status}") }
+                .onFailure { Log.w(TAG, "end failed for $id — server sweep is the backstop", it) }
+        }
 
         Prefs.setActiveSessionId(this, null)
         sessionId = null
@@ -274,6 +289,19 @@ class HeuristicSpyService : Service() {
             return false
         }
         val delta = unsentActiveSeconds.coerceAtMost(MAX_DELTA_SECONDS)
+
+        if (godMode) {
+            // Account locally so the overlay ticks and the free allowance
+            // drains just as it would live, then stop. No request, no charge.
+            val free = delta.coerceAtMost(freeSecondsRemaining)
+            freeSecondsRemaining -= free
+            sessionBillableSeconds += delta - free
+            unsentActiveSeconds -= delta
+            countingSinceFlush = false
+            msSinceFlush = 0
+            return false // no server, so no cap signal to honour
+        }
+
         val response = runCatching {
             Network.api.sessionHeartbeat(
                 id,

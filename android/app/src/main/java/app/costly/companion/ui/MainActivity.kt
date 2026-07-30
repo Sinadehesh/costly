@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
+import app.costly.companion.BuildConfig
 import app.costly.companion.Prefs
 import app.costly.companion.net.DeviceLinker
 import app.costly.companion.net.GoogleAuth
@@ -311,7 +312,9 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var linked by remember { mutableStateOf(Prefs.isLinked(context)) }
+    // God mode counts as linked: it has no account but it does run the meter,
+    // so the permission steps are exactly what it needs to show.
+    var linked by remember { mutableStateOf(Prefs.isLinked(context) || Prefs.isGodMode(context)) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var linking by remember { mutableStateOf(false) }
@@ -352,9 +355,13 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
 
     fun completeLink() {
         linked = true
-        HeartbeatWorker.schedule(context)
-        HealthSyncWorker.schedule(context)
-        HeartbeatWorker.pingNow(context)
+        // Skipped in god mode: every one of these calls the API, which god mode
+        // has no credential for and deliberately never touches.
+        if (!Prefs.isGodMode(context)) {
+            HeartbeatWorker.schedule(context)
+            HealthSyncWorker.schedule(context)
+            HeartbeatWorker.pingNow(context)
+        }
         startEngineIfReady()
         if (Build.VERSION.SDK_INT >= 33) {
             notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -431,6 +438,11 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
                     linking = false
                 }
             },
+            onGodMode = {
+                Prefs.setGodMode(context, true)
+                monitoringOn = UsageAccess.isGranted(context)
+                completeLink()
+            },
         )
         return
     }
@@ -450,6 +462,25 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Eyebrow("COSTLY / COMPANION")
+
+        if (Prefs.isGodMode(context)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "GOD MODE: local test only. Nothing is billed.",
+                    color = Gold,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                // Without this there is no way back to a real account once the
+                // flag is set, which would make the test mode a trap.
+                TextButton(onClick = {
+                    HeuristicSpyService.stop(context)
+                    Prefs.setGodMode(context, false)
+                    linked = Prefs.isLinked(context)
+                }) { Text("Exit", color = Muted, fontSize = 12.sp) }
+            }
+        }
 
         Text(
             if (armed) "SYSTEM ARMED" else "ALMOST ARMED",
@@ -605,6 +636,7 @@ private fun SignInScreen(
     error: String?,
     onGoogle: () -> Unit,
     onSignIn: () -> Unit,
+    onGodMode: () -> Unit,
 ) {
     var showEmail by remember { mutableStateOf(false) }
 
@@ -698,9 +730,40 @@ private fun SignInScreen(
             }
         }
 
+        // ── Debug-only: skip everything and just test the meter ─────────────
+        // Present only in debug builds, and Prefs.isGodMode is gated on
+        // BuildConfig.DEBUG at the read too, so a release build cannot honour
+        // the flag even if the preference is on disk. It grants NO server
+        // access: there is no endpoint behind it to abuse.
+        if (BuildConfig.DEBUG) {
+            Spacer(Modifier.height(8.dp))
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(Surface2, RoundedCornerShape(14.dp))
+                    .border(1.dp, Gold.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Eyebrow("DEBUG BUILD", Gold)
+                Text(
+                    "God mode runs the detector, the meter and the overlay with no " +
+                        "account and no server. Nothing is billed and no request is sent. " +
+                        "Use it to check whether scrolling is actually detected on this phone.",
+                    color = Muted,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                )
+                PrimaryButton("Skip sign-in and test the meter", color = Gold, onClick = onGodMode)
+            }
+        }
+
         Spacer(Modifier.height(8.dp))
         Text(
-            "Nothing is metered until this phone is signed in.",
+            if (BuildConfig.DEBUG)
+                "Nothing is metered until this phone is signed in, or god mode is on."
+            else
+                "Nothing is metered until this phone is signed in.",
             color = Faint,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace,

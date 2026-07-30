@@ -15,6 +15,13 @@ interface CostlyApi {
     suspend fun login(@Body body: LoginRequest): LoginResponse
 
     /**
+     * Google Sign-In. The device sends a Credential Manager ID token; the
+     * server verifies it against Google's keys and returns a device secret.
+     */
+    @POST("api/auth/google")
+    suspend fun googleLogin(@Body body: GoogleLoginRequest): LoginResponse
+
+    /**
      * Legacy OTP pairing. Superseded by login() — kept because a device linked
      * under the old flow still holds a valid secret, and removing the endpoint
      * from the client would strand anyone mid-migration.

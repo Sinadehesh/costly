@@ -34,7 +34,7 @@ export default function LandingPage() {
           <div className="rounded-xl border border-accent-dim bg-surface-2 p-3">
             <p className="money text-2xl font-bold text-accent">80%</p>
             <p className="mt-1 text-xs leading-snug text-muted">
-              Walk it off — two minutes on your feet per minute scrolled — and
+              Walk it off. two minutes on your feet per minute scrolled. and
               you keep it.
             </p>
           </div>

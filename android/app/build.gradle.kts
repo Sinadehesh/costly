@@ -37,6 +37,13 @@ gradle.taskGraph.whenReady {
     }
 }
 
+// The Google WEB client id (not the Android one) is what Credential Manager
+// must request, because the ID token's audience has to match what the backend
+// verifies against. Set costlyGoogleWebClientId in ~/.gradle/gradle.properties
+// or pass -PcostlyGoogleWebClientId=... at build time.
+val googleWebClientId: String =
+    (project.findProperty("costlyGoogleWebClientId") as String?) ?: ""
+
 android {
     namespace = "app.costly.companion"
     compileSdk = 35
@@ -51,6 +58,7 @@ android {
         // Debug points at your machine by default (emulator → host). Override
         // with -PcostlyDebugApiBaseUrl for a LAN IP or adb reverse setup.
         buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
         // (Phase 1) The old shared DEVICE_API_SECRET build field is retired —
         // each device now gets a per-device secret from /api/device/link at
         // runtime, held in SharedPreferences, not baked into the build.
@@ -133,6 +141,14 @@ dependencies {
     // use (StepsRecord, ExerciseSessionRecord, aggregate, permissions). To move
     // back to rc/stable later, bump AGP → 8.9.1+ and compileSdk → 36 together.
     implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
+
+    // Google Sign-In via Credential Manager. The modern API: it shows the
+    // system account sheet in-app, so there is no browser hop and no "go to the
+    // website to finish signing in" step. googleid supplies the Google ID
+    // option and parses the returned ID token, which the backend verifies.
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     // Network
     implementation("com.squareup.retrofit2:retrofit:2.11.0")

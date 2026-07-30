@@ -26,6 +26,22 @@ object DeviceLinker {
     private fun deviceLabel(): String =
         "${Build.MANUFACTURER} ${Build.MODEL}".trim().take(64)
 
+    /**
+     * Google Sign-In: the account sheet, then a verified ID token traded for a
+     * device secret. One tap, no password, and nothing to type.
+     */
+    suspend fun signInWithGoogle(context: Context): Result<Unit> = runCatching {
+        val idToken = GoogleAuth.idToken(context).getOrThrow()
+        val response = Network.api.googleLogin(
+            GoogleLoginRequest(idToken = idToken, deviceLabel = deviceLabel()),
+        )
+        val secret = requireNotNull(response.deviceSecret) { "server returned no device secret" }
+        Prefs.setLink(context, deviceSecret = secret, userId = response.userId)
+        Network.deviceSecret = secret
+        Log.i(TAG, "Signed in with Google as ${response.userId}")
+        Unit
+    }.onFailure { Log.w(TAG, "google sign-in failed", it) }
+
     suspend fun signIn(context: Context, email: String, password: String): Result<Unit> =
         runCatching {
             val response = Network.api.login(

@@ -24,7 +24,7 @@ export default async function SettleUpPage({
       </h1>
       <p className="text-sm leading-relaxed text-muted">
         {paid
-          ? 'Your account is being unlocked. Reopen Costly — the meter is armed again, and so are we.'
+          ? 'Your account is being unlocked. Reopen Costly. the meter is armed again, and so are we.'
           : 'Nothing was charged. Your account is still locked until the balance clears.'}
       </p>
     </main>

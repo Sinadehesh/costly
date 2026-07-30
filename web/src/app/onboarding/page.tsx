@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { CatWidget } from '@/components/CatWidget';
+import { GoogleSignIn } from '@/components/GoogleSignIn';
 import { euros, eurosExact } from '@/lib/format';
 import { DAILY_FREE_MINUTE_OPTIONS } from '@/lib/penalty';
 
@@ -39,7 +40,7 @@ const WITHDRAWAL_TERMS_VERSION = '2026-07-withdrawal-v1';
 
 const WISH_CATALOGUE: { group: string; items: WishOption[] }[] = [
   {
-    group: 'Small stuff (€5–€30)',
+    group: 'Small stuff (€5€30)',
     items: [
       { name: 'A fancy coffee', priceEuros: 5 },
       { name: 'A cinema ticket', priceEuros: 13 },
@@ -49,7 +50,7 @@ const WISH_CATALOGUE: { group: string; items: WishOption[] }[] = [
     ],
   },
   {
-    group: 'Nights out (€50–€150)',
+    group: 'Nights out (€50€150)',
     items: [
       { name: 'A nice dinner', priceEuros: 80 },
       { name: 'Concert tickets', priceEuros: 90 },
@@ -59,7 +60,7 @@ const WISH_CATALOGUE: { group: string; items: WishOption[] }[] = [
     ],
   },
   {
-    group: 'Real money (€200–€600)',
+    group: 'Real money (€200€600)',
     items: [
       { name: 'AirPods', priceEuros: 250 },
       { name: 'A mechanical keyboard', priceEuros: 200 },
@@ -108,7 +109,7 @@ const BEATS: { line: string; cents: number; walkingPct?: number }[] = [
     cents: 60,
   },
   {
-    line: 'When you close it, 20% is mine. Permanently. That part never comes back — neither did the time.',
+    line: 'When you close it, 20% is mine. Permanently. That part never comes back. neither did the time.',
     cents: 640,
   },
   {
@@ -151,6 +152,8 @@ export default function OnboardingPage() {
   // Must be an explicit, un-prechecked action — a pre-ticked box is not
   // express consent, and this one is the reason the charges stand up.
   const [withdrawalConsent, setWithdrawalConsent] = useState(false);
+  // Step 5 — Google is the default; this reveals the email alternative.
+  const [emailFallback, setEmailFallback] = useState(false);
   // Step 4
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -196,12 +199,17 @@ export default function OnboardingPage() {
     } catch {
       const snippet = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
       return snippet
-        ? `${fallback} (HTTP ${res.status}) — ${snippet}`
+        ? `${fallback} (HTTP ${res.status}). ${snippet}`
         : `${fallback} (HTTP ${res.status})`;
     }
   }
 
-  async function submitAndVault() {
+  /**
+   * Save the contract terms and fetch a SetupIntent, then show the card step.
+   * Runs only after sign-in, so /api/onboarding authenticates by cookie and
+   * never has to be told which account these terms belong to.
+   */
+  async function saveContractAndVault() {
     setBusy(true);
     setError(null);
     try {
@@ -209,8 +217,6 @@ export default function OnboardingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email,
-          password,
           hourlyRateCents: hourlyCents,
           dailyFreeMinutes,
           anchorItems: filledWishes, // may legitimately be []
@@ -221,22 +227,59 @@ export default function OnboardingPage() {
           withdrawalTermsVersion: WITHDRAWAL_TERMS_VERSION,
         }),
       });
-      if (!res.ok) throw new Error(await failureMessage(res, 'onboarding_failed'));
-      const { userId: newUserId } = await res.json();
+      if (!res.ok) throw new Error(await failureMessage(res, 'Could not save your contract'));
 
-      // No userId in the body — /api/onboarding just set the session cookie,
-      // and the server resolves the user from it.
       const siRes = await fetch('/api/stripe/setup-intent', { method: 'POST' });
-      if (!siRes.ok) throw new Error(await failureMessage(siRes, 'setup_intent_failed'));
+      if (!siRes.ok) throw new Error(await failureMessage(siRes, 'Could not reach Stripe'));
       const { clientSecret: secret } = await siRes.json();
 
-      window.localStorage.setItem('costly:userId', newUserId);
-      setUserId(newUserId);
       setClientSecret(secret);
-      setStep(5);
+      setStep(6);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something failed. It was not us.');
     } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Google: one tap, no password to invent, no page to visit. */
+  async function signInWithGoogle(idToken: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      if (!res.ok) throw new Error(await failureMessage(res, 'Google sign-in failed'));
+      const body = await res.json();
+      window.localStorage.setItem('costly:userId', body.userId);
+      setUserId(body.userId);
+      await saveContractAndVault();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Google sign-in failed.');
+      setBusy(false);
+    }
+  }
+
+  /** The opt-in alternative for people who would rather not use Google. */
+  async function signUpWithPassword() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) throw new Error(await failureMessage(res, 'Could not create your account'));
+      const body = await res.json();
+      window.localStorage.setItem('costly:userId', body.userId);
+      setUserId(body.userId);
+      await saveContractAndVault();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not create your account.');
       setBusy(false);
     }
   }
@@ -246,10 +289,10 @@ export default function OnboardingPage() {
       {/* Terminal header + progress */}
       <header className="rounded-xl border-4 border-gray-800 bg-black px-4 py-3">
         <p className="font-mono text-xs tracking-[0.25em] text-emerald-400">
-          COSTLY://ONBOARDING · STEP {step}/5
+          COSTLY://ONBOARDING · STEP {step}/6
         </p>
         <div className="mt-3 flex gap-1.5">
-          {[1, 2, 3, 4, 5].map((s) => (
+          {[1, 2, 3, 4, 5, 6].map((s) => (
             <div
               key={s}
               className={`h-2 flex-1 rounded ${s <= step ? 'bg-emerald-500' : 'bg-zinc-800'}`}
@@ -268,7 +311,7 @@ export default function OnboardingPage() {
           Two testers in a row proved this screen had to exist. One didn't
           understand the product until she was asked to read the text; another
           said it outright: "some people could mistake it and think this money
-          is not real money and get fucked — make it very clear that it's your
+          is not real money and get fucked. make it very clear that it's your
           real money and your credit card."
 
           So it is revealed one beat at a time and gated on a tap. You cannot
@@ -316,7 +359,7 @@ export default function OnboardingPage() {
                   </p>
                   <p className="mt-2 text-sm leading-relaxed text-zinc-300">
                     Nobody is pretending. If that is not what you want, close
-                    this page — that costs nothing, and it is a completely
+                    this page. that costs nothing, and it is a completely
                     reasonable thing to do.
                   </p>
                 </div>
@@ -341,7 +384,7 @@ export default function OnboardingPage() {
             onClick={() => setStep(2)}
             className={ctaClass}
           >
-            {moneyUnderstood ? 'I UNDERSTAND — CONTINUE' : 'READ IT FIRST'}
+            {moneyUnderstood ? 'I UNDERSTAND. CONTINUE' : 'READ IT FIRST'}
           </button>
         </section>
       )}
@@ -354,12 +397,12 @@ export default function OnboardingPage() {
               The most-validated element in the whole cohort. One tester asked
               for the yearly figure in red; another checked EVERY option just to
               compare the hours and said "I appreciate how much it is in the
-              whole year, it teaches me so much" — then asked for exactly this:
+              whole year, it teaches me so much". then asked for exactly this:
               a forward-looking number, "at this rate you will waste 50 hours
               this year, or 2 years of your life".
 
               Time is the headline, money is the footnote. She reacted to the
-              hours, not the euros — and the euro figure here is the WORTH of
+              hours, not the euros. and the euro figure here is the WORTH of
               that time at her own rate, not a bill we intend to send. Caps and
               the free allowance mean the two are not the same, and implying
               otherwise would be a lie the first statement would expose. */}
@@ -368,7 +411,7 @@ export default function OnboardingPage() {
               How much do you scroll now?
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-              Roughly. Your phone already knows — this is just so you can see it.
+              Roughly. Your phone already knows. this is just so you can see it.
             </p>
 
             <div className="mt-4 grid grid-cols-6 gap-1.5">
@@ -429,35 +472,9 @@ export default function OnboardingPage() {
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
               Be honest. A cheap rate makes a painless meter, and a painless
-              meter changes nothing. The cat prefers you lie — it eats either
+              meter changes nothing. The cat prefers you lie. it eats either
               way.
             </p>
-            <label className="mt-4 block">
-              <span className="font-mono text-[10px] tracking-widest text-zinc-500">EMAIL</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className={`${inputClass} mt-1`}
-              />
-            </label>
-            <label className="mt-4 block">
-              <span className="font-mono text-[10px] tracking-widest text-zinc-500">
-                PASSWORD
-              </span>
-              {/* An account you cannot sign back into is not an account. The
-                  session cookie expires, and onboarding refuses you while a
-                  contract is sealed — without this there is no way back in. */}
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="new-password"
-                placeholder="at least 8 characters"
-                className={`${inputClass} mt-1`}
-              />
-            </label>
             <label className="mt-4 block">
               <span className="font-mono text-[10px] tracking-widest text-zinc-500">
                 HOURLY RATE (€)
@@ -484,7 +501,7 @@ export default function OnboardingPage() {
           </div>
 
           {/* Daily free allowance. The honest warning comes first, in a plain
-              voice — a health claim delivered entirely in sarcasm reads as a
+              voice. a health claim delivered entirely in sarcasm reads as a
               joke, and this one is not one. The cat gets the last word only. */}
           <div className={cardClass}>
             <h2 className="text-xl font-extrabold text-white">Free minutes each day</h2>
@@ -492,19 +509,19 @@ export default function OnboardingPage() {
               Time the meter ignores. Resets daily, not per session.
             </p>
 
-            {/* Short on purpose — the long version tested as a wall people
+            {/* Short on purpose. the long version tested as a wall people
                 skipped. It names the excuse instead of arguing with it: one
                 tester doomscrolls "to calm down", and the reason is always
                 real, which is exactly why the habit holds. */}
             <p className="mt-3 text-sm leading-relaxed text-zinc-300">
-              Every habit like this comes with a good reason attached — the
+              Every habit like this comes with a good reason attached. the
               news, your friends&apos; stories, winding down. They&apos;re real.
               They all have another way in.
             </p>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
               Pick <strong className="text-white">0</strong>, or{' '}
               <strong className="text-white">5</strong> for the stories. Locked
-              for the whole contract — a limit you can raise on a bad evening is
+              for the whole contract. a limit you can raise on a bad evening is
               not a limit.
             </p>
 
@@ -551,7 +568,7 @@ export default function OnboardingPage() {
           </div>
 
           <button
-            disabled={!email.includes('@') || password.length < 8 || hourlyCents <= 0}
+            disabled={hourlyCents <= 0 || usageHours === null}
             onClick={() => setStep(3)}
             className={ctaClass}
           >
@@ -567,7 +584,7 @@ export default function OnboardingPage() {
               What are you saving for? <span className="text-zinc-500">(optional)</span>
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-              Pick up to 5 things you actually want — prices are filled in for
+              Pick up to 5 things you actually want. prices are filled in for
               you and stay editable, and &ldquo;Something else…&rdquo; lets you
               name your own. If you do, the cat will taunt you with them by
               name when you burn money. If you skip this, it will simply brag
@@ -608,7 +625,7 @@ export default function OnboardingPage() {
                         }}
                         className={`${inputClass} flex-1 appearance-none`}
                       >
-                        <option value="">— nothing in slot {i + 1} —</option>
+                        <option value=""> nothing in slot {i + 1} </option>
                         {WISH_CATALOGUE.map((group) => (
                           <optgroup key={group.group} label={group.group}>
                             {group.items.map((opt) => (
@@ -617,7 +634,7 @@ export default function OnboardingPage() {
                                 value={opt.name}
                                 disabled={takenElsewhere.has(opt.name)}
                               >
-                                {opt.name} — €{opt.priceEuros}
+                                {opt.name}. €{opt.priceEuros}
                               </option>
                             ))}
                           </optgroup>
@@ -671,7 +688,7 @@ export default function OnboardingPage() {
               onClick={() => setStep(4)}
               className={`${ctaClass} flex-1`}
             >
-              {filledWishes.length > 0 ? `LOCK IN ${filledWishes.length} HOSTAGE${filledWishes.length > 1 ? 'S' : ''}` : 'SKIP — NOTHING IS SACRED'}
+              {filledWishes.length > 0 ? `LOCK IN ${filledWishes.length} HOSTAGE${filledWishes.length > 1 ? 'S' : ''}` : 'SKIP. NOTHING IS SACRED'}
             </button>
           </div>
         </section>
@@ -683,7 +700,7 @@ export default function OnboardingPage() {
             <h1 className="text-2xl font-extrabold text-white">The Contract</h1>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
               The day this starts working, you will want to delete it. Decide
-              now — while you still mean it — what running away costs.
+              now. while you still mean it. what running away costs.
             </p>
 
             <p className="mt-4 font-mono text-[10px] tracking-widest text-zinc-500">LOCK-IN</p>
@@ -725,7 +742,7 @@ export default function OnboardingPage() {
             </p>
             {feeEuros === 0 && (
               <div className="mt-3 rounded-lg border-2 border-yellow-500 bg-yellow-500/10 p-3">
-                <p className="text-sm font-bold text-yellow-400">€0 — Not Recommended.</p>
+                <p className="text-sm font-bold text-yellow-400">€0. Not Recommended.</p>
                 <p className="mt-1 text-xs text-yellow-400/80">
                   A contract with no teeth is a suggestion, and you have ignored
                   a decade of suggestions. Allowed. Not respected.
@@ -742,13 +759,13 @@ export default function OnboardingPage() {
                 <li>&gt; lock-in: {lockinDays === 7 ? '1 week' : '1 month'} from today</li>
                 <li>&gt; desertion: {euros(feeEuros * 100)}, charged off-session</li>
                 <li>
-                  &gt; hostages: {filledWishes.length > 0 ? `${filledWishes.length} named` : 'none — pure taunts'}
+                  &gt; hostages: {filledWishes.length > 0 ? `${filledWishes.length} named` : 'none. pure taunts'}
                 </li>
               </ul>
             </div>
 
             {/* Express consent to immediate performance during the statutory
-                14-day withdrawal period. Kept visually plain and legible —
+                14-day withdrawal period. Kept visually plain and legible 
                 this one is not a joke, and burying it in arcade styling would
                 undermine the very thing it exists to establish. */}
             <label className="mt-5 flex cursor-pointer gap-3 rounded-lg border-2 border-zinc-700 bg-zinc-950 p-4">
@@ -775,23 +792,101 @@ export default function OnboardingPage() {
               BACK
             </button>
             <button
-              disabled={busy || !withdrawalConsent}
-              onClick={submitAndVault}
+              disabled={!withdrawalConsent}
+              onClick={() => setStep(5)}
               className="flex-1 rounded-xl border-4 border-gray-800 bg-red-500 px-6 py-4 font-extrabold text-zinc-950 transition enabled:hover:brightness-110 disabled:opacity-50"
             >
-              {busy ? 'FILING…' : withdrawalConsent ? 'SIGN IT' : 'TICK THE BOX FIRST'}
+              {withdrawalConsent ? 'SIGN IT' : 'TICK THE BOX FIRST'}
             </button>
           </div>
         </section>
       )}
 
-      {step === 5 && clientSecret && userId && (
+      {/* ── Step 5 · SIGN IN ───────────────────────────────────────────────
+          Deliberately the second-to-last step. Everything above is the user
+          deciding what they want; an account is only needed at the point where
+          we have something to attach a card to. Asking for credentials first
+          makes people sign up before they know whether they want the product.
+
+          Google is the default because it is one tap and invents no password.
+          Email is offered underneath for anyone who would rather not hand
+          Google another app, which is a reasonable thing to want. */}
+      {step === 5 && (
+        <section className="mt-6 space-y-5">
+          <CatWidget penaltyCents={0} wishlistItem={filledWishes[0]?.name ?? null} />
+          <div className={cardClass}>
+            <h1 className="text-2xl font-extrabold text-white">Save your contract</h1>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Your terms are set. Sign in so they stick to an account, then add
+              the card that makes them real.
+            </p>
+
+            <div className="mt-5">
+              <GoogleSignIn onToken={signInWithGoogle} disabled={busy} />
+            </div>
+
+            {!emailFallback ? (
+              <button
+                type="button"
+                onClick={() => setEmailFallback(true)}
+                className="mt-4 w-full text-center text-sm text-zinc-500 underline"
+              >
+                Use an email and password instead
+              </button>
+            ) : (
+              <div className="mt-5 border-t-2 border-gray-800 pt-5">
+                <label className="block">
+                  <span className="font-mono text-[10px] tracking-widest text-zinc-500">
+                    EMAIL
+                  </span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    className={`${inputClass} mt-1`}
+                  />
+                </label>
+                <label className="mt-4 block">
+                  <span className="font-mono text-[10px] tracking-widest text-zinc-500">
+                    PASSWORD
+                  </span>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
+                    placeholder="at least 8 characters"
+                    className={`${inputClass} mt-1`}
+                  />
+                </label>
+                <button
+                  disabled={busy || !email.includes('@') || password.length < 8}
+                  onClick={signUpWithPassword}
+                  className={`${ctaClass} mt-4`}
+                >
+                  {busy ? 'SAVING…' : 'CONTINUE'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <button onClick={() => setStep(4)} className={backClass}>
+              BACK
+            </button>
+          </div>
+        </section>
+      )}
+
+      {step === 6 && clientSecret && userId && (
         <section className="mt-6 space-y-5">
           <div className={cardClass}>
             <h1 className="text-2xl font-extrabold text-white">The Vault</h1>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
               We are not charging you today. We are making sure we{' '}
-              <em>can</em> — while you scroll, while you sleep, while you
+              <em>can</em>. while you scroll, while you sleep, while you
               pretend this app doesn&apos;t exist.
             </p>
             <div className="mt-4">

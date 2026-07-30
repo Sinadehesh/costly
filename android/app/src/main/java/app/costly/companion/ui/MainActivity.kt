@@ -64,6 +64,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import app.costly.companion.Prefs
 import app.costly.companion.net.DeviceLinker
+import app.costly.companion.net.GoogleAuth
 import app.costly.companion.net.Network
 import app.costly.companion.overlay.OverlayPermission
 import app.costly.companion.spy.HeuristicSpyService
@@ -410,6 +411,16 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
             onPasswordChange = { password = it },
             busy = linking,
             error = linkError,
+            onGoogle = {
+                linking = true
+                linkError = null
+                scope.launch {
+                    DeviceLinker.signInWithGoogle(context)
+                        .onSuccess { completeLink() }
+                        .onFailure { linkError = "Google sign-in did not complete." }
+                    linking = false
+                }
+            },
             onSignIn = {
                 linking = true
                 linkError = null
@@ -479,7 +490,7 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
 
         Step(
             number = 1,
-            title = "The eyes — Usage Access",
+            title = "The eyes. Usage Access",
             done = monitoringOn,
             active = !monitoringOn,
             body = "Lets us see which app is in the foreground; the gyroscope decides whether " +
@@ -498,7 +509,7 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
 
         Step(
             number = 2,
-            title = "The meter — draw over apps",
+            title = "The meter. draw over apps",
             done = overlayOn,
             active = monitoringOn && !overlayOn,
             body = "The live meter floats over whatever you're scrolling, ticking your money " +
@@ -516,10 +527,10 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
 
         Step(
             number = 3,
-            title = "The legs — Health Connect",
+            title = "The legs. Health Connect",
             done = healthGranted,
             active = monitoringOn && overlayOn && !healthGranted,
-            body = "Proof you actually walked. No walk data, no refunds — your 80% sits in " +
+            body = "Proof you actually walked. No walk data, no refunds. your 80% sits in " +
                 "purgatory until the deadline eats it.",
         ) {
             val available =
@@ -532,7 +543,7 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
 
         Step(
             number = 4,
-            title = "Keep us alive — battery",
+            title = "Keep us alive. battery",
             done = batteryExempt,
             active = monitoringOn && overlayOn && healthGranted && !batteryExempt,
             body = "Doze delays our 12-hour proof-of-life ping. If Android silences us for 24 " +
@@ -554,7 +565,7 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
         if (armed) {
             Spacer(Modifier.height(8.dp))
             PrimaryButton(
-                if (syncRequested) "Syncing — check the dashboard" else "Sync my walk now",
+                if (syncRequested) "Syncing. check the dashboard" else "Sync my walk now",
                 color = Gold,
             ) {
                 HealthSyncWorker.syncNow(context)
@@ -573,17 +584,16 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
 }
 
 /**
- * Sign in. Email and password, like every other app — because that is what a
- * phone with a keyboard should ask for.
+ * Sign in.
  *
- * What this replaced: a 6-digit code the user had to read off their dashboard
- * on another screen and retype here. That pattern is for devices that cannot
- * take input (TVs, consoles); on a phone it is pure ceremony, and it made
- * signing in to your own account feel like pairing a printer.
+ * Google is the default and the only thing visible by default: one tap, no
+ * password to invent, and Credential Manager shows the account sheet inside the
+ * app so there is no browser hop. Email and password is folded away underneath
+ * for anyone who would rather not hand Google another app.
  *
- * The password is sent once and never stored. What comes back and IS stored is
- * a per-device secret, so this phone can be revoked on its own, and a stolen
- * device never yields the account password.
+ * What this screen no longer does is send anyone to a website. Telling a person
+ * holding your app to go and visit your web page to get a code, or to sign up,
+ * is a dead end dressed as a step.
  */
 @Composable
 private fun SignInScreen(
@@ -593,9 +603,10 @@ private fun SignInScreen(
     onPasswordChange: (String) -> Unit,
     busy: Boolean,
     error: String?,
+    onGoogle: () -> Unit,
     onSignIn: () -> Unit,
 ) {
-    val context = LocalContext.current
+    var showEmail by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -609,8 +620,8 @@ private fun SignInScreen(
         Eyebrow("COSTLY / COMPANION")
         Text("Sign in", color = Fg, fontSize = 32.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Use the account you signed the contract with. This app is only the eyes " +
-                "and the legs — the rate, the wishlist and the card all live on the web.",
+            "Use the account you signed the contract with. This app is the eyes and " +
+                "the legs; the rate, the wishlist and the card live in your account.",
             color = Muted,
             fontSize = 14.sp,
             lineHeight = 20.sp,
@@ -622,51 +633,70 @@ private fun SignInScreen(
             modifier = Modifier.fillMaxWidth().border(1.dp, Line, RoundedCornerShape(16.dp)),
         ) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = onEmailChange,
-                    singleLine = true,
-                    enabled = !busy,
-                    label = { Text("Email") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Accent,
-                        unfocusedBorderColor = Line,
-                    ),
-                )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = onPasswordChange,
-                    singleLine = true,
-                    enabled = !busy,
-                    label = { Text("Password") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Accent,
-                        unfocusedBorderColor = Line,
-                    ),
-                )
+                if (GoogleAuth.isConfigured) {
+                    PrimaryButton(
+                        if (busy) "Signing in..." else "Continue with Google",
+                        enabled = !busy,
+                        onClick = onGoogle,
+                    )
+                } else {
+                    Text(
+                        "Google sign-in is not configured in this build. Use email and " +
+                            "password below.",
+                        color = Danger,
+                        fontSize = 13.sp,
+                    )
+                }
+
                 error?.let { Text(it, color = Danger, fontSize = 13.sp) }
-                PrimaryButton(
-                    if (busy) "Signing in…" else "Sign in",
-                    enabled = !busy && email.contains("@") && password.isNotEmpty(),
-                    onClick = onSignIn,
-                )
+
+                if (!showEmail) {
+                    TextButton(
+                        onClick = { showEmail = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            "Use an email and password instead",
+                            color = Muted,
+                            fontSize = 13.sp,
+                        )
+                    }
+                } else {
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = onEmailChange,
+                        singleLine = true,
+                        enabled = !busy,
+                        label = { Text("Email") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Accent,
+                            unfocusedBorderColor = Line,
+                        ),
+                    )
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = onPasswordChange,
+                        singleLine = true,
+                        enabled = !busy,
+                        label = { Text("Password") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Accent,
+                            unfocusedBorderColor = Line,
+                        ),
+                    )
+                    PrimaryButton(
+                        if (busy) "Signing in..." else "Sign in",
+                        enabled = !busy && email.contains("@") && password.isNotEmpty(),
+                        onClick = onSignIn,
+                    )
+                }
             }
         }
-
-        TextButton(
-            onClick = {
-                context.startActivity(
-                    Intent(Intent.ACTION_VIEW, Uri.parse(dashboardUrl()))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                )
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("No account yet? Sign the contract on the web", color = Muted, fontSize = 13.sp) }
 
         Spacer(Modifier.height(8.dp))
         Text(
@@ -679,10 +709,6 @@ private fun SignInScreen(
         )
     }
 }
-
-/** Strips the API base back to an origin so we can point at the dashboard. */
-private fun dashboardUrl(): String =
-    app.costly.companion.BuildConfig.API_BASE_URL.trimEnd('/') + "/dashboard"
 
 /**
  * The Phase 2 hard-lock. Shown instead of the whole arming UI when a charge
@@ -713,7 +739,7 @@ fun SettleUpScreen(initialSettleUpUrl: String?, onOpenUrl: (String) -> Unit) {
         )
         Text(
             "A charge didn't go through, so everything is frozen. No metering, " +
-                "no arming, no mercy — until the balance clears. You knew the terms.",
+                "no arming, no mercy. until the balance clears. You knew the terms.",
             color = Muted,
             fontSize = 14.sp,
             lineHeight = 20.sp,

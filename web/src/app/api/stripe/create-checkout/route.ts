@@ -42,7 +42,7 @@ export async function POST(req: Request) {
         price_data: {
           currency: user.currency,
           unit_amount: amount,
-          product_data: { name: 'Costly — settle up your penalty' },
+          product_data: { name: 'Costly: settle up your penalty' },
         },
       },
     ],

@@ -16,8 +16,19 @@ data class LoginRequest(
     val deviceLabel: String,
 )
 
+data class GoogleLoginRequest(
+    val idToken: String,
+    /** Naming this device also asks the server for a per-device secret. */
+    val deviceLabel: String,
+)
+
 data class LoginResponse(
     val userId: String,
+    val email: String? = null,
+    /** True when this sign-in created the account rather than resuming one. */
+    val created: Boolean = false,
+    /** Already has a card on file, so onboarding is done. */
+    val onboarded: Boolean = false,
     // Returned exactly once. The password is never persisted; this is.
     val deviceSecret: String? = null,
     val deviceId: String? = null,

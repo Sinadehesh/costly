@@ -280,7 +280,7 @@ export default function DashboardPage() {
             </>
           ) : (
             <p className="mt-3 text-sm leading-relaxed text-muted">
-              Nothing at risk. The cat is unfed — it respects you slightly more, and hates that.
+              Nothing at risk. The cat is unfed. it respects you slightly more, and hates that.
             </p>
           )}
         </section>
@@ -310,7 +310,7 @@ export default function DashboardPage() {
             <p className="font-mono text-xs tracking-[0.25em] text-danger">SYSTEM UNARMED</p>
             <p className="mt-2 text-sm leading-relaxed text-muted">
               You signed the contract, but nothing is watching. No screen time is
-              tracked and no steps are counted — every number above is theatre
+              tracked and no steps are counted. every number above is theatre
               until a device pairs.
             </p>
             <div className="mt-4 flex items-center gap-4 rounded-xl border border-accent-dim bg-surface-2 p-4">
@@ -397,7 +397,7 @@ export default function DashboardPage() {
                       <span className="text-fg">{a.name}</span>
                       <span className="money text-muted">{euros(a.priceCents)}</span>
                     </div>
-                    {/* How much of each thing has been eaten — the hostage
+                    {/* How much of each thing has been eaten. the hostage
                         ladder was a flat price list, which taunts nobody. */}
                     <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
                       <div className="h-full bg-burn" style={{ width: `${eaten}%` }} />

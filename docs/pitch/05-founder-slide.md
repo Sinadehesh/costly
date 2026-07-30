@@ -96,6 +96,17 @@ the founder, not the CV.
 before" without inviting questions you would rather answer in conversation than
 on a slide.
 
+**Engineer Passway is a collaboration, and the slide is already honest about
+that.** The solo claim is scoped to one product in its own sentence — "Costly is
+solo" — so the list above it never asserts that everything on it was built
+alone. No caveat is needed in the block; adding one would spend a line
+correcting a claim that was never made. Say it in the room instead: *"Engineer
+Passway I build with an engineer friend. Costly is mine end to end."* Antler is
+a co-founder matching programme, so evidence that you can build alongside
+somebody is a point in your favour, not a dilution of the builder claim. A
+founder slide that insists everything was solo reads as someone who cannot share
+a codebase.
+
 **What is deliberately absent:** certifications, the core-competencies list,
 anything from the CV that reads as a job application. A founder slide that looks
 like a résumé signals someone applying for a role rather than starting a
@@ -156,8 +167,9 @@ own rate rather than being assigned one.
 >
 > And I build a lot. Twenty-odd products and prototypes in the last year; four
 > survived contact with users, and two of those were client work delivered on
-> fixed timelines. Costly is the full payment system and the Android detection
-> engine, written solo.
+> fixed timelines. Engineer Passway I am building with an engineer friend;
+> Costly is the full payment system and the Android detection engine, written
+> solo.
 >
 > I build them out of the research rather than by copying competitors. Costly's
 > model is a deposit contract, which is straight from the behavioural

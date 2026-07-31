@@ -479,6 +479,62 @@ attach a card against their own behaviour. The 25% in SAM is an estimate
 carrying more weight than any other figure here. It is the first thing the
 alpha measures, and no sizing exercise substitutes for it.
 
+### Justifying revenue above €100M
+
+Do not reach for a bigger market. Reach for the customer count, because at
+this ARPU it is unusually small:
+
+| Annual revenue | Customers acquired per year |
+| --- | --- |
+| €50M | 56,000 |
+| **€100M** | **113,000** |
+| €150M | 169,000 |
+| €250M | 282,000 |
+
+**€100M is 113,000 customers a year — about 9,400 a month, and 1.9% of the
+~6M people in Tier-1 markets already paying for a blocker.** That is the
+whole argument, and it is a distribution claim rather than a market claim,
+which is the kind a partner can actually assess. Competing consumer
+subscriptions need five to ten times the customers for the same revenue.
+
+This is why ARPU is the lever worth defending and user count is not: at the
+€200 an earlier draft assumed, €100M needs 500,000 customers, which is a
+different and much harder company.
+
+**Three sources of headroom above that**, in descending order of confidence:
+
+1. **iOS and market expansion.** SAM is currently gated on Android (~54% of
+   the eight markets) and eight markets only. Both are build effort, not new
+   thesis, and together they roughly triple SAM.
+2. **The engine generalises to any detectable phone behaviour.** Detection →
+   charge → redeem-by-walking is not specific to Instagram. Gambling apps
+   are the obvious second target: the harm per hour is far higher, the
+   self-exclusion infrastructure is regulated and already funded, and the
+   rate a user sets against a slot machine is not €15/hour. Shopping and
+   gaming follow. This is the strongest structural answer to "does this cap
+   out", because it multiplies the addressable behaviour rather than
+   inflating any single figure.
+3. **The employer inversion.** Same engine, opposite money flow: the employer
+   funds the deposit and the employee earns it back. It opens a B2B channel
+   and, more usefully, it removes the predatory reading entirely, because
+   nobody is charging the user anything.
+
+**Two things not to claim.** First, a high-rate segment. Blending in
+professionals at €40–90/hour would take ARPU to ~€1,560 and drop the €100M
+requirement to 64,000 customers, but users *set their own rate knowing it
+will be charged*, so self-set rates skew low by construction. The cohort's
+€15 median may be closer to a ceiling than a midpoint, and this must be
+measured before it is modelled. Second, do not present a Year 5 figure with
+confidence. Pre-revenue, the credible register is *here is why the ceiling
+is high, and here is the one measurement that decides it* — not a five-year
+curve.
+
+**What actually gates all of it** is the card-attach rate and whether
+relapse-driven reactivation works. Addiction relapses; a customer who leaves
+and returns six months later is normal for this behaviour and materially
+raises lifetime value. Neither number exists yet, and both come out of the
+alpha.
+
 ## 10. Risks — named first, because they will be found anyway
 
 | Risk | Status |

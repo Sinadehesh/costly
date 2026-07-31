@@ -331,12 +331,12 @@ section, as evidence the category is real — never as a ring value.
 
 ARPU is **€200 per active customer-year**, derived below.
 
-| | Who | Filter | Customers | Value |
-| --- | --- | --- | --- | --- |
-| *context* | Smartphone users worldwide | — | 4.9B | *not a market* |
-| **TAM** | Adults in card-mature markets who want to cut their screen time | — | ~425M | **€85B** |
-| **SAM** | Tier-1 launch markets, on Android, who would put money at stake | DE·NL·UK·IE·Nordics·US·CA·AU | ~31M | **€6.2B** |
-| **SOM** | Year 3 | 0.8% of SAM | 250K | **€50M ARR** |
+| | Who | Filter | Customers | ARPU | Value |
+| --- | --- | --- | --- | --- | --- |
+| *context* | Smartphone users worldwide | — | 4.9B | — | *not a market* |
+| **TAM** | Adults in card-mature markets who want to cut their screen time | — | ~425M | €120 | **€51B** |
+| **SAM** | Tier-1 launch markets, on Android, who would put money at stake | DE·NL·UK·IE·Nordics·US·CA·AU | ~31M | €400 | **€12.4B** |
+| **SOM** | Year 3 | 0.3% of SAM | 100K | €885 | **€88M ARR** |
 
 Derivation, so every step can be attacked separately:
 
@@ -352,26 +352,85 @@ Derivation, so every step can be attacked separately:
 - The Android and EU-law constraints lift with build effort, which is what
   makes SAM→TAM a roadmap rather than a wish.
 
-The Year 3 ramp behind the SOM: **8K → 60K → 250K** active customers, i.e.
-€2M → €12M → €50M ARR.
+The Year 3 ramp behind the SOM: **4K → 25K → 100K** customers, i.e.
+**€3.5M → €22M → €88M ARR** at €885.
 
-### Why ARPU is €200, and why that is still conservative
+### Deriving ARPU from the cohort's own numbers
 
-Costly keeps 20% of every penalty permanently, plus the 80% that goes
-unredeemed. Revenue per customer is `penalties × (0.2 + 0.8 × (1 −
-redemption rate))`. Working €200 backwards, at a €15/hour self-set rate
-(€0.25/minute):
+The interviews give one hard input: **€15/hour is the most common self-set
+rate.** Build up from there rather than picking a price.
 
-| If customers walk off… | €200/yr needs penalties of | Billable scrolling |
+Start with the raw week — one hour a day of scrolling past the free
+allowance, which is a fair description of the beachhead:
+
+| | Per day | Per week |
 | --- | --- | --- |
-| 80% of it | €556/yr | 6.1 min/day |
-| half | €333/yr | 3.7 min/day |
-| 20% | €238/yr | 2.6 min/day |
+| Penalty at €15/h | €15.00 | €105.00 |
+| Burn, permanent (20%) | €3.00 | €21.00 |
+| Purgatory, walkable (80%) | €12.00 | €84.00 |
 
-**Under four billable minutes a day carries the whole model.** That is the
-argument for €200: it is not an aggressive price, it is what a mildly
-relapsing customer generates almost incidentally. Someone still scrolling 30
-minutes a day past their allowance produces roughly ten times it.
+If five of seven days get walked off, revenue is €21 burn + €24 unredeemed =
+**€45/week, or €2,340/year.** That number is wrong, and the three reasons it
+is wrong are all worth knowing.
+
+**1. That redemption rate is not physically available.** At `SWEAT_RATIO = 2`,
+one hour of scrolling costs two hours of verified walking. Walking off five
+days is **ten hours on foot per week** — 86 minutes every day. Almost nobody
+sustains that, so real redemption will land far below 70%. That pushes
+revenue *up*, which is the wrong kind of good news: it means the 80% is
+advertised as walkable and is in practice unreachable. See the ratio note in
+§10.
+
+**2. Nobody pays it.** €2,340/year is **156 hours of the customer's own
+stated wage** — they told us an hour is worth €15, and this bills them a
+month of working life annually. What actually happens at €45/week is a
+chargeback, an uninstall, or a furious cohort, not fifty-two weeks of
+revenue.
+
+**3. It assumes the product fails.** Fifty-two unchanged weeks of hour-a-day
+overage means Costly did nothing. If it works, billable time decays and so
+does revenue.
+
+So the raw week is a **ceiling**, not an ARPU. Apply a decay curve and
+ordinary consumer churn (15%/month), holding redemption at a realistic 35%:
+
+| Month | Overage | Still active | Revenue/active |
+| --- | --- | --- | --- |
+| 1 | 1.00 h/day | 100% | €324 |
+| 3 | 0.45 h/day | 72% | €146 |
+| 6 | 0.28 h/day | 44% | €91 |
+| 12 | 0.20 h/day | 17% | €65 |
+
+**≈ €885 of revenue per acquired customer over twelve months.** Sensitivity
+on the redemption rate, which is the least known input: €1,033 at 20%
+redeemed, €738 at 50%, €541 at 70%.
+
+That is the number to use. It is 4× the €200 an earlier draft assumed and
+roughly a third of the raw-week ceiling.
+
+**The useful consequence: a higher ARPU means fewer customers, not a bigger
+claim.** €50M of ARR needs 250,000 customers at €200 and **56,000 at €885**.
+Fifty-six thousand customers across eight markets is a materially more
+credible plan than a quarter of a million.
+
+### Why the ladder's ARPU rises as it narrows
+
+A single ARPU across all three rings would be wrong here, because
+penalty-funded revenue varies by roughly fifty times between a light user
+and a heavy one. Multiplying a continent-sized population by a heavy-user
+ARPU produces a fantasy number, and a partner will say so.
+
+State the ARPU on each ring instead. It rising as the rings narrow is the
+argument, not an embarrassment:
+
+| Ring | Customers | ARPU | Why this ARPU |
+| --- | --- | --- | --- |
+| **TAM** | 425M | €120 | blended — most people have minutes of overage, not an hour |
+| **SAM** | 31M | €400 | self-selected: someone willing to stake money has a bigger problem |
+| **SOM** | 100K | €885 | the beachhead, on the measured decay curve |
+
+> The narrower the ring, the more each customer is worth, because the people
+> who will stake money are the people with the worst problem.
 
 Two honest counterweights, both of which belong in the answer rather than
 hidden from it:
@@ -425,6 +484,8 @@ alpha measures, and no sizing exercise substitutes for it.
 | Risk | Status |
 | --- | --- |
 | A false positive charges someone unfairly | Mitigated by design: screen-on gate, 2-of-3 signal vote, per-session cap. **Open:** gyroscope thresholds are first-pass estimates and need on-device tuning before real cards. |
+| **The 2:1 sweat ratio may put the refund out of reach** | Surfaced by the §9 unit-economics work. One hour of scrolling owes two hours of verified walking, so a beachhead user with an hour a day of overage would need **ten hours on foot per week** to walk off five days. If almost nobody can reach it, the 80% is advertised as refundable and is functionally a fine — which raises revenue, chargebacks and the predatory reading all at once. **Open:** the alpha must report the realised redemption rate, and `SWEAT_RATIO` may need to drop below 2 or scale down as session length grows. |
+| **No weekly cap exists in v2** | `CLAUDE.md` specifies a user-set weekly hard cap that converts money-bleed into lockout; only the per-session cap (€30) was built. Nothing currently bounds a bad week — an hour a day at €15/h is €105 of penalties before any redemption. **Open:** implement the weekly cap before real cards, or the §6 "not predatory" answer has a hole in it. |
 | Google Play rejection | Engineered off AccessibilityService already. **Open:** `specialUse` foreground services still draw manual review. |
 | "You charged me for deleting an app" chargebacks | Consent evidence per contract; breach charge is idempotent. **Open:** needs an ~18h warning email and a reinstall-to-cure grace window — a phone dead in a drawer currently looks identical to deletion. |
 | Holding user funds | Avoided by design — Stripe holds, we capture or cancel; Costly never takes custody. Stays true as long as we do not escrow penalties into a user-owned pot (§7). |

@@ -770,6 +770,19 @@ private fun SignInScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
+
+        // Which build is actually on the phone. Sideloading gives no feedback
+        // about whether an install replaced the old APK or silently did
+        // nothing, so the build stamp is the only way to answer "did my
+        // changes land" without plugging into adb.
+        Text(
+            "build ${BuildConfig.VERSION_NAME}",
+            color = Faint,
+            fontSize = 10.sp,
+            fontFamily = FontFamily.Monospace,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 

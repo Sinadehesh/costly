@@ -17,6 +17,16 @@ fun prop(name: String, fallback: String): String =
 val debugApiBaseUrl = prop("costlyDebugApiBaseUrl", "http://10.0.2.2:3000/")
 val releaseApiBaseUrl = prop("costlyReleaseApiBaseUrl", "")
 
+/**
+ * Build number, so two APKs are never indistinguishable.
+ *
+ * versionCode used to be hardcoded to 1, which meant every build ever produced
+ * claimed to be the same version. Installing a new APK then looked identical to
+ * installing nothing, and there was no way to tell from the phone whether the
+ * changes had actually landed. CI passes the run number; local builds get 1.
+ */
+val buildNumber = (project.findProperty("costlyBuildNumber") as String?)?.toIntOrNull() ?: 1
+
 // A release APK pointing at a placeholder domain is worse than no APK: it
 // installs, runs, and silently fails every call. Fail the build instead.
 gradle.taskGraph.whenReady {
@@ -52,8 +62,8 @@ android {
         applicationId = "app.costly.companion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = buildNumber
+        versionName = "0.1.0.$buildNumber"
 
         // Debug points at your machine by default (emulator → host). Override
         // with -PcostlyDebugApiBaseUrl for a LAN IP or adb reverse setup.
@@ -65,6 +75,31 @@ android {
     }
 
     signingConfigs {
+        /**
+         * Debug signing, pinned to a keystore in the repo.
+         *
+         * This is the fix for "App not installed" when sideloading a new CI
+         * build over an old one. By default AGP signs debug builds with
+         * ~/.android/debug.keystore, and it *generates that file if it is
+         * missing* — which on a fresh CI runner it always is. So every CI run
+         * produced an APK signed by a brand-new random key, and Android refuses
+         * to update an installed app whose signature changed
+         * (INSTALL_FAILED_UPDATE_INCOMPATIBLE, surfaced on the phone as a bare
+         * "App not installed"). Pinning the keystore makes every build, local
+         * or CI, share one identity, so upgrades install over each other.
+         *
+         * Committing this file is safe and deliberate: it signs debug builds
+         * only, it uses the well-known Android debug password, and Play rejects
+         * anything signed with it. Release signing is entirely separate — see
+         * the costlyKeystore* properties below.
+         */
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+
         /**
          * Release signing, explicit rather than implicit.
          *

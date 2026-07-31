@@ -6,5 +6,13 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+# Signing keys stay out of the repo — with one deliberate exception below.
 *.keystore
 *.jks
+
+# The debug keystore is committed on purpose. Without a pinned key, AGP mints a
+# fresh ~/.android/debug.keystore on every CI runner, so consecutive builds are
+# signed by different keys and refuse to install over each other. This file
+# signs debug builds only and Play rejects anything bearing it. Real upload
+# keys are still covered by the patterns above.
+!app/debug.keystore

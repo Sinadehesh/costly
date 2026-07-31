@@ -335,8 +335,8 @@ ARPU is **€200 per active customer-year**, derived below.
 | --- | --- | --- | --- | --- | --- |
 | *context* | Smartphone users worldwide | — | 4.9B | — | *not a market* |
 | **TAM** | Adults in card-mature markets who want to cut their screen time | — | ~425M | €120 | **€51B** |
-| **SAM** | Tier-1 launch markets, on Android, who would put money at stake | DE·NL·UK·IE·Nordics·US·CA·AU | ~31M | €400 | **€12.4B** |
-| **SOM** | Year 3 | 0.3% of SAM | 100K | €885 | **€88M ARR** |
+| **SAM** | Tier-1 launch markets, either platform, who would put money at stake | DE·NL·UK·IE·Nordics·US·CA·AU | ~57M | €400 | **€22.9B** |
+| **SOM** | Year 3 | 0.2% of SAM | 113K | €885 | **€100M ARR** |
 
 Derivation, so every step can be attacked separately:
 
@@ -344,16 +344,18 @@ Derivation, so every step can be attacked separately:
   card-mature markets ≈ **850M**. `[NEEDS SOURCE]`
 - **~50%** say they want to reduce their screen time. `[NEEDS SOURCE]` —
   the softest number in the ladder, and the one to source first.
-- **~54%** blended Android share across those markets (US ~45%, Europe/CA/AU
-  ~65%). `[NEEDS SOURCE — StatCounter, current month]`
+- **No platform filter.** SAM covers both platforms; iOS is a build in
+  progress rather than a future market, so gating SAM on Android would
+  understate it by **26M customers and €10.6B**. See the iOS note below for
+  what the iOS product can and cannot do.
 - **~25%** would consider putting money at stake against their own
   behaviour. `[NEEDS SOURCE]` This is the gate the alpha exists to measure,
   and it is deliberately inside SAM rather than assumed away.
-- The Android and EU-law constraints lift with build effort, which is what
-  makes SAM→TAM a roadmap rather than a wish.
+- Only the market list separates SAM from TAM now, which makes SAM→TAM a
+  matter of expansion rather than of platform engineering.
 
-The Year 3 ramp behind the SOM: **4K → 25K → 100K** customers, i.e.
-**€3.5M → €22M → €88M ARR** at €885.
+The Year 3 ramp behind the SOM: **5K → 28K → 113K** customers, i.e.
+**€4.4M → €25M → €100M** at €885.
 
 ### Deriving ARPU from the cohort's own numbers
 
@@ -426,7 +428,7 @@ argument, not an embarrassment:
 | Ring | Customers | ARPU | Why this ARPU |
 | --- | --- | --- | --- |
 | **TAM** | 425M | €120 | blended — most people have minutes of overage, not an hour |
-| **SAM** | 31M | €400 | self-selected: someone willing to stake money has a bigger problem |
+| **SAM** | 57M | €400 | self-selected: someone willing to stake money has a bigger problem |
 | **SOM** | 100K | €885 | the beachhead, on the measured decay curve |
 
 > The narrower the ring, the more each customer is worth, because the people
@@ -479,6 +481,43 @@ attach a card against their own behaviour. The 25% in SAM is an estimate
 carrying more weight than any other figure here. It is the first thing the
 alpha measures, and no sizing exercise substitutes for it.
 
+### The iOS note — SAM counts it, but it is a different product
+
+iOS is in SAM because it is being built. What it will not be is a port: the
+platform does not expose what the Android engine uses, so the iOS product is
+**coarser by construction**, and the pitch should say so before a technical
+partner asks.
+
+- **There is no foreground-app API.** The only sanctioned route is the Screen
+  Time family — FamilyControls, DeviceActivity, ManagedSettings (iOS 15+).
+  It reports usage against an opaque, user-selected app set; it never tells
+  you which app is frontmost.
+- **Threshold callbacks, not a live meter.** `DeviceActivityEvent` fires when
+  a usage threshold is crossed. So iOS bills in blocks — a penalty per N
+  minutes of usage — where Android meters per minute. The odometer UI becomes
+  a block counter.
+- **The monitor extension is effectively offline.** `DeviceActivityMonitor`
+  runs under tight memory limits with no dependable network access, so it
+  cannot call the API at the moment of the event. State reconciles when the
+  main app next opens, which weakens the dead man's switch on iOS.
+- **The 2-of-3 engagement vote cannot be ported.** No background gyroscope
+  correlation with a specific app, no per-app network stats. You inherit
+  Apple's own accounting instead: more trustworthy for *was it open*, blind
+  to *was it being used*. A phone left on Instagram in a pocket is billable
+  on iOS in a way the Android design deliberately prevents — which matters
+  because the 20% burn is permanent.
+- **The real schedule risk is the entitlement, not the code.** The
+  FamilyControls distribution entitlement requires Apple's approval, and
+  review may also question charging real money tied to an on-device
+  restriction. Neither is a month-long engineering problem; both are
+  calendar risk outside our control.
+
+**How to present it:** iOS ships as a block-billed version with the same
+contract, wishlist and redemption loop, and Android remains the
+high-fidelity build. That is honest, it still justifies counting iOS in SAM,
+and it turns a limitation into evidence the platforms were understood rather
+than assumed.
+
 ### Justifying revenue above €100M
 
 Do not reach for a bigger market. Reach for the customer count, because at
@@ -503,9 +542,8 @@ different and much harder company.
 
 **Three sources of headroom above that**, in descending order of confidence:
 
-1. **iOS and market expansion.** SAM is currently gated on Android (~54% of
-   the eight markets) and eight markets only. Both are build effort, not new
-   thesis, and together they roughly triple SAM.
+1. **Market expansion.** SAM is eight markets. Adding the rest of the EU,
+   Japan and Korea is localisation and payment plumbing, not new thesis.
 2. **The engine generalises to any detectable phone behaviour.** Detection →
    charge → redeem-by-walking is not specific to Instagram. Gambling apps
    are the obvious second target: the harm per hour is far higher, the
@@ -543,6 +581,7 @@ alpha.
 | **The 2:1 sweat ratio may put the refund out of reach** | Surfaced by the §9 unit-economics work. One hour of scrolling owes two hours of verified walking, so a beachhead user with an hour a day of overage would need **ten hours on foot per week** to walk off five days. If almost nobody can reach it, the 80% is advertised as refundable and is functionally a fine — which raises revenue, chargebacks and the predatory reading all at once. **Open:** the alpha must report the realised redemption rate, and `SWEAT_RATIO` may need to drop below 2 or scale down as session length grows. |
 | **No weekly cap exists in v2** | `CLAUDE.md` specifies a user-set weekly hard cap that converts money-bleed into lockout; only the per-session cap (€30) was built. Nothing currently bounds a bad week — an hour a day at €15/h is €105 of penalties before any redemption. **Open:** implement the weekly cap before real cards, or the §6 "not predatory" answer has a hole in it. |
 | Google Play rejection | Engineered off AccessibilityService already. **Open:** `specialUse` foreground services still draw manual review. |
+| **iOS ships coarser, and the entitlement is not ours to schedule** | iOS has no foreground-app API, so the build uses Screen Time (FamilyControls / DeviceActivity) and bills per usage threshold rather than per minute; the monitor extension has no dependable network access, so state reconciles on next app open and the dead man's switch is weaker there. The 2-of-3 engagement vote cannot be ported, so an idle-but-open app is billable on iOS — bad in combination with a permanent 20% burn. **Open:** the FamilyControls distribution entitlement needs Apple's approval, and review may question charging real money against an on-device restriction. Calendar risk, not engineering risk. |
 | "You charged me for deleting an app" chargebacks | Consent evidence per contract; breach charge is idempotent. **Open:** needs an ~18h warning email and a reinstall-to-cure grace window — a phone dead in a drawer currently looks identical to deletion. |
 | Holding user funds | Avoided by design — Stripe holds, we capture or cancel; Costly never takes custody. Stays true as long as we do not escrow penalties into a user-owned pot (§7). |
 | EU consumer law on the breach fee | Framed correctly it is ordinary ground: the user is *suggested* a range, sets the amount themselves (€0–€1000, zero allowed), then signs a fixed 7- or 30-day term with that number as the early-breach fee — the shape of a phone-plan termination fee or a lease break, not an imposed penalty. Self-pricing and the permitted €0 both help the unfair-terms analysis. **Open:** whether the term survives Directive 93/13/EEC scrutiny. |

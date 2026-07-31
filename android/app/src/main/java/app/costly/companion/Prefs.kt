@@ -1,6 +1,7 @@
 package app.costly.companion
 
 import android.content.Context
+import app.costly.companion.BuildConfig
 import android.content.SharedPreferences
 import app.costly.companion.net.AnchorLite
 import app.costly.companion.net.Network
@@ -16,6 +17,7 @@ object Prefs {
     private const val KEY_RATE = "penaltyRateCentsPerMin"
     private const val KEY_ANCHORS = "anchorsJson"
     private const val KEY_FREE_REMAINING = "freeSecondsRemaining"
+    private const val KEY_GOD_MODE = "godMode"
     private const val KEY_PAYMENT_FAILED = "paymentFailed"
     private const val KEY_SETTLE_UP_URL = "settleUpUrl"
 
@@ -93,6 +95,25 @@ object Prefs {
 
     fun setFreeSecondsRemaining(context: Context, seconds: Int) =
         sp(context).edit().putInt(KEY_FREE_REMAINING, seconds.coerceAtLeast(0)).apply()
+
+    // ── God mode (debug builds only) ──────────────────────────────────────
+
+    /**
+     * Local test mode: run the detector, the meter and the overlay with NO
+     * account and NO server. Nothing is billed and no API is called, which is
+     * the point: it exercises the risky half (foreground detection, the
+     * engagement vote, the overlay) on a real phone without needing auth,
+     * Postgres, Stripe or a Google client.
+     *
+     * Hard-gated on BuildConfig.DEBUG at the READ, not just where it is set, so
+     * a release build cannot honour the flag even if the preference somehow
+     * exists on disk. R8 folds this to `false` and strips the branches.
+     */
+    fun isGodMode(context: Context): Boolean =
+        BuildConfig.DEBUG && sp(context).getBoolean(KEY_GOD_MODE, false)
+
+    fun setGodMode(context: Context, on: Boolean) =
+        sp(context).edit().putBoolean(KEY_GOD_MODE, on).apply()
 
     fun setMeterConfig(
         context: Context,

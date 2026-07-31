@@ -17,6 +17,16 @@ fun prop(name: String, fallback: String): String =
 val debugApiBaseUrl = prop("costlyDebugApiBaseUrl", "http://10.0.2.2:3000/")
 val releaseApiBaseUrl = prop("costlyReleaseApiBaseUrl", "")
 
+/**
+ * Build number, so two APKs are never indistinguishable.
+ *
+ * versionCode used to be hardcoded to 1, which meant every build ever produced
+ * claimed to be the same version. Installing a new APK then looked identical to
+ * installing nothing, and there was no way to tell from the phone whether the
+ * changes had actually landed. CI passes the run number; local builds get 1.
+ */
+val buildNumber = (project.findProperty("costlyBuildNumber") as String?)?.toIntOrNull() ?: 1
+
 // A release APK pointing at a placeholder domain is worse than no APK: it
 // installs, runs, and silently fails every call. Fail the build instead.
 gradle.taskGraph.whenReady {
@@ -37,6 +47,13 @@ gradle.taskGraph.whenReady {
     }
 }
 
+// The Google WEB client id (not the Android one) is what Credential Manager
+// must request, because the ID token's audience has to match what the backend
+// verifies against. Set costlyGoogleWebClientId in ~/.gradle/gradle.properties
+// or pass -PcostlyGoogleWebClientId=... at build time.
+val googleWebClientId: String =
+    (project.findProperty("costlyGoogleWebClientId") as String?) ?: ""
+
 android {
     namespace = "app.costly.companion"
     compileSdk = 35
@@ -45,18 +62,44 @@ android {
         applicationId = "app.costly.companion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = buildNumber
+        versionName = "0.1.0.$buildNumber"
 
         // Debug points at your machine by default (emulator → host). Override
         // with -PcostlyDebugApiBaseUrl for a LAN IP or adb reverse setup.
         buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
         // (Phase 1) The old shared DEVICE_API_SECRET build field is retired —
         // each device now gets a per-device secret from /api/device/link at
         // runtime, held in SharedPreferences, not baked into the build.
     }
 
     signingConfigs {
+        /**
+         * Debug signing, pinned to a keystore in the repo.
+         *
+         * This is the fix for "App not installed" when sideloading a new CI
+         * build over an old one. By default AGP signs debug builds with
+         * ~/.android/debug.keystore, and it *generates that file if it is
+         * missing* — which on a fresh CI runner it always is. So every CI run
+         * produced an APK signed by a brand-new random key, and Android refuses
+         * to update an installed app whose signature changed
+         * (INSTALL_FAILED_UPDATE_INCOMPATIBLE, surfaced on the phone as a bare
+         * "App not installed"). Pinning the keystore makes every build, local
+         * or CI, share one identity, so upgrades install over each other.
+         *
+         * Committing this file is safe and deliberate: it signs debug builds
+         * only, it uses the well-known Android debug password, and Play rejects
+         * anything signed with it. Release signing is entirely separate — see
+         * the costlyKeystore* properties below.
+         */
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+
         /**
          * Release signing, explicit rather than implicit.
          *
@@ -133,6 +176,14 @@ dependencies {
     // use (StepsRecord, ExerciseSessionRecord, aggregate, permissions). To move
     // back to rc/stable later, bump AGP → 8.9.1+ and compileSdk → 36 together.
     implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
+
+    // Google Sign-In via Credential Manager. The modern API: it shows the
+    // system account sheet in-app, so there is no browser hop and no "go to the
+    // website to finish signing in" step. googleid supplies the Google ID
+    // option and parses the returned ID token, which the backend verifies.
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     // Network
     implementation("com.squareup.retrofit2:retrofit:2.11.0")

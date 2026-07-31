@@ -49,11 +49,15 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    # The run number becomes versionCode/versionName, so the APK on the phone
+    # can be checked against the build it came from. Without it every APK
+    # claimed to be version 1 and a successful install was indistinguishable
+    # from no install at all.
     - name: Generate Gradle Wrapper and Build APK
       run: |
         cd android
         gradle wrapper
-        ./gradlew assembleDebug
+        ./gradlew assembleDebug -PcostlyBuildNumber=${{ github.run_number }}
 
     # Pure-JVM unit tests for the billing-critical logic (DoomscrollDetector,
     # MeterMath). No device or emulator needed. Runs after the build so a
@@ -73,5 +77,5 @@ jobs:
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: costly-debug-apk
+        name: costly-debug-apk-${{ github.run_number }}
         path: android/app/build/outputs/apk/debug/app-debug.apk

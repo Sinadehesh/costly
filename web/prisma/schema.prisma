@@ -58,10 +58,13 @@ model User {
   updatedAt DateTime @updatedAt
   email     String   @unique
 
-  // Ordinary email+password sign-in. Nullable because accounts created before
-  // auth existed have none; those users set one the next time they onboard.
-  // The Android app signs in with these and is handed a per-device secret —
-  // it never stores the password, and there is no code to transcribe.
+  // Google is the primary sign-in on both surfaces: `sub` from a verified ID
+  // token. Nullable because email+password remains an opt-in alternative.
+  googleId String? @unique
+
+  // Email+password sign-in, optional. Nullable for Google-only accounts and
+  // for accounts created before auth existed. The Android app signs in and is
+  // handed a per-device secret; it never stores the password.
   passwordHash String?
 
   // ── Rate: the user states what one hour of their life is worth ─────────

@@ -8,7 +8,7 @@
  * counsel and adapted to your jurisdiction (GDPR/CCPA/etc.) before launch.
  */
 export const metadata = {
-  title: 'Costly — Privacy Policy',
+  title: 'Costly Privacy Policy',
 };
 
 const UPDATED = '2026-07-21';
@@ -22,7 +22,7 @@ export default function PrivacyPage() {
 
       <div className="mt-6 rounded-lg border-2 border-yellow-600/50 bg-yellow-500/10 p-4 text-sm text-yellow-300">
         Template notice: this is a starter policy describing Costly&apos;s data
-        practices. It is not legal advice — have it reviewed by counsel and
+        practices. It is not legal advice; have it reviewed by counsel and
         localized before publishing to the Play Store.
       </div>
 
@@ -50,7 +50,7 @@ export default function PrivacyPage() {
           <li>
             <strong>Step count (Health Connect).</strong> With your permission,
             we read your daily step total to evaluate the laziness penalty. Only
-            the daily total and your timezone are sent to our backend — no other
+            the daily total and your timezone are sent to our backend. no other
             health data.
           </li>
           <li>
@@ -64,7 +64,7 @@ export default function PrivacyPage() {
       <Section title="What we do NOT collect">
         We do not read the content of your apps, messages, or browsing. We do not
         collect location. We do not sell your data. Raw usage and sensor streams
-        stay on your device — only the derived, agreed-upon billable amounts and
+        stay on your device. only the derived, agreed-upon billable amounts and
         daily step totals leave it.
       </Section>
 

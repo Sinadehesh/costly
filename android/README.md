@@ -150,9 +150,34 @@ backend takes `max()`, so replays are harmless).
 # from android/
 ./gradlew :app:assembleDebug            # needs Android SDK + JDK 17
 ./gradlew :app:testDebugUnitTest        # pure-JVM tests, no device needed
-adb install app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb reverse tcp:3000 tcp:3000           # or set API_BASE_URL to your LAN/deploy
 ```
+
+### "App not installed" when sideloading a new build
+
+Fixed as of the pinned debug keystore below, but if you hit it on a phone that
+still carries an APK from **before** that fix, the old and new APKs are signed
+by different keys and Android will not update across a signature change. It
+reports this as a bare "App not installed" with no reason.
+
+Uninstall once, then install normally. Every build after that upgrades cleanly:
+
+```bash
+adb uninstall app.costly.companion    # or long-press the icon → Uninstall
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
+
+Uninstalling wipes local state, so the phone has to be signed in and armed
+again. That is a one-time cost.
+
+### Confirming which build is on the phone
+
+The sign-in screen prints `build 0.1.0.<n>` at the bottom, where `<n>` is the
+CI run number the APK came from (`1` for a local build). Check it against the
+run you downloaded. Sideloading gives no feedback about whether an install
+actually replaced the old APK, so this stamp is the difference between "my
+change didn't work" and "my change isn't on the phone".
 
 ### Build configuration (injected, not hardcoded)
 
@@ -172,7 +197,16 @@ costlyKeyAlias=upload
 costlyKeyPassword=…
 ```
 
-Two deliberate behaviours:
+Three deliberate behaviours:
+
+- **Debug builds are signed with `app/debug.keystore`, committed to the repo.**
+  AGP's default is `~/.android/debug.keystore`, which it *generates when
+  missing* — so every CI runner minted a fresh random key and every CI APK had
+  a different signature, making each new build refuse to install over the last
+  one. Pinning the keystore gives local and CI builds one shared identity.
+  Committing it is safe: it signs debug builds only, uses the standard Android
+  debug password, and Play rejects anything signed with it.
+
 
 - **A release build with no `costlyReleaseApiBaseUrl` fails at configure
   time.** It used to hardcode `https://YOUR-DEPLOYMENT.vercel.app/`, which

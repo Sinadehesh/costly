@@ -321,9 +321,92 @@ behavior. That is a narrower gate than "scrolls too much," and no amount of
 market sizing substitutes for measuring it. It is the first number the alpha
 produces.
 
-`[NEEDS SOURCE]` — before submitting, build the bottom-up: paying users
-across Opal / Freedom / one sec / FocusMe × plausible conversion. A
-sourced bottom-up beats a borrowed TAM in every partner meeting.
+### The ladder, at €100 per customer per year
+
+All three layers price the customer at **€100/year** and filter on the
+constraints the product actually has today.
+
+| | Who | Filter applied | Customers | At €100/yr |
+| --- | --- | --- | --- | --- |
+| **TAM** | Adult smartphone users in card-mature markets (EU-27, UK, US, CA, AU) | want to cut their screen time | ~345M | **€34.5B** |
+| **SAM** | Of those, EU-27 + UK only | on Android | ~125M | **€12.5B** |
+| **SOM** | Of SAM | 10% capture | 12.5M | **€1.25B** |
+
+Derivation, so every step can be attacked separately:
+
+- Adult smartphone users: EU-27 + UK ≈ **380M**; adding US, Canada and
+  Australia ≈ **690M**. `[NEEDS SOURCE]`
+- **~50%** say they want to reduce their screen time. `[NEEDS SOURCE]` —
+  this is the softest number in the ladder and the one to source first.
+- **~66%** Android share in Europe (StatCounter). `[NEEDS SOURCE — pull the
+  current month]`
+- SAM is EU-first because the contract is written against EU consumer law
+  and the companion is Android-only. Both constraints lift with build
+  effort, which is what makes SAM→TAM a roadmap rather than a wish.
+
+### What €100 a year assumes about behaviour
+
+Costly keeps 20% of every penalty permanently, plus the 80% that goes
+unredeemed. So revenue per user is `total penalties × (0.2 + 0.8 × (1 −
+redemption rate))`, and €100 of revenue implies:
+
+| If users walk off… | €100/yr requires penalties of |
+| --- | --- |
+| everything (100% redeemed) | €500/yr |
+| half | €167/yr |
+| nothing | €100/yr |
+
+**€100 is a conservative number, and it is worth saying so out loud.** At a
+€15/hour self-set rate the meter charges €0.25/minute, so €167/year of
+penalties is under two billable minutes a day. Anyone still scrolling 40
+minutes a day past their free allowance generates that in a week.
+
+The reason not to model the aggressive number: **this product destroys its
+own revenue when it works.** A user who quits scrolling stops paying. €100
+is therefore best defended as the *steady state of a working product* —
+someone who relapses occasionally, walks most of it off, and re-signs —
+rather than as a monetization target. That framing turns the obvious
+partner objection ("your revenue falls if you succeed") into the number
+already being in the model.
+
+It also assumes re-contracting: contracts run 7 or 30 days, so €100/year is
+roughly four 30-day contracts at €25, not one annual charge. Retention
+across contract boundaries is a real assumption and the alpha measures it.
+
+### Why 10% of SAM is the wrong SOM to present
+
+12.5M customers and €1.25B is the arithmetic answer, and it is in the table
+above because it was asked for. It should not go on a slide. "10% of the
+market" is the single most discounted claim in venture pitching — it asserts
+a share rather than deriving one, and a partner reads it as evidence that
+nobody has thought about distribution.
+
+Apply the same 10% to the **beachhead** instead, and it becomes defensible:
+
+- Digital detox apps are a **$498M** category today (Valuates, cited above).
+  EU + UK is roughly a quarter of it, so ≈ **€115M** of existing spend.
+- At €40–60/year typical subscription pricing, that implies **~2M people in
+  EU + UK already paying for screen-time control.** `[NEEDS SOURCE — verify
+  against Opal / Freedom / one sec / Forest disclosed subscriber counts]`
+- **10% of proven payers = 200,000 customers × €100 = €20M ARR.**
+
+Same capture assumption, one-sixtieth the claim, and it is anchored to a
+figure already sourced in this section. It also matches the beachhead
+argument above: these are people who have already paid for a blocker and
+relapsed anyway.
+
+A three-year path to it, which is what the €20M actually means:
+
+| | Customers | ARR |
+| --- | --- | --- |
+| Year 1 | 5,000 | €500K |
+| Year 2 | 40,000 | €4M |
+| Year 3 | 200,000 | €20M |
+
+**The number that is not in any of this** is what share of people will
+attach a card against their own behaviour. Every layer above assumes it away.
+It is the first thing the alpha measures, and no sizing exercise substitutes
+for it.
 
 ## 10. Risks — named first, because they will be found anyway
 

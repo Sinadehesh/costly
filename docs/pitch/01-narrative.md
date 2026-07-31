@@ -321,92 +321,104 @@ behavior. That is a narrower gate than "scrolls too much," and no amount of
 market sizing substitutes for measuring it. It is the first number the alpha
 produces.
 
-### The ladder, at €100 per customer per year
+### The ladder
 
-All three layers price the customer at **€100/year** and filter on the
-constraints the product actually has today.
+**One rule: every ring is `customers × ARPU`, using the same ARPU.** Mixing a
+third-party market size into a ladder that otherwise computes your own
+revenue makes the rings non-comparable, and a partner spots it immediately.
+Published category sizes belong in the two bullets at the top of this
+section, as evidence the category is real — never as a ring value.
 
-| | Who | Filter applied | Customers | At €100/yr |
+ARPU is **€200 per active customer-year**, derived below.
+
+| | Who | Filter | Customers | Value |
 | --- | --- | --- | --- | --- |
-| **TAM** | Adult smartphone users in card-mature markets (EU-27, UK, US, CA, AU) | want to cut their screen time | ~345M | **€34.5B** |
-| **SAM** | Of those, EU-27 + UK only | on Android | ~125M | **€12.5B** |
-| **SOM** | Of SAM | 10% capture | 12.5M | **€1.25B** |
+| *context* | Smartphone users worldwide | — | 4.9B | *not a market* |
+| **TAM** | Adults in card-mature markets who want to cut their screen time | — | ~425M | **€85B** |
+| **SAM** | Tier-1 launch markets, on Android, who would put money at stake | DE·NL·UK·IE·Nordics·US·CA·AU | ~31M | **€6.2B** |
+| **SOM** | Year 3 | 0.8% of SAM | 250K | **€50M ARR** |
 
 Derivation, so every step can be attacked separately:
 
-- Adult smartphone users: EU-27 + UK ≈ **380M**; adding US, Canada and
-  Australia ≈ **690M**. `[NEEDS SOURCE]`
+- Adult smartphone users in the eight Tier-1 markets ≈ **459M**; across all
+  card-mature markets ≈ **850M**. `[NEEDS SOURCE]`
 - **~50%** say they want to reduce their screen time. `[NEEDS SOURCE]` —
-  this is the softest number in the ladder and the one to source first.
-- **~66%** Android share in Europe (StatCounter). `[NEEDS SOURCE — pull the
-  current month]`
-- SAM is EU-first because the contract is written against EU consumer law
-  and the companion is Android-only. Both constraints lift with build
-  effort, which is what makes SAM→TAM a roadmap rather than a wish.
+  the softest number in the ladder, and the one to source first.
+- **~54%** blended Android share across those markets (US ~45%, Europe/CA/AU
+  ~65%). `[NEEDS SOURCE — StatCounter, current month]`
+- **~25%** would consider putting money at stake against their own
+  behaviour. `[NEEDS SOURCE]` This is the gate the alpha exists to measure,
+  and it is deliberately inside SAM rather than assumed away.
+- The Android and EU-law constraints lift with build effort, which is what
+  makes SAM→TAM a roadmap rather than a wish.
 
-### What €100 a year assumes about behaviour
+The Year 3 ramp behind the SOM: **8K → 60K → 250K** active customers, i.e.
+€2M → €12M → €50M ARR.
+
+### Why ARPU is €200, and why that is still conservative
 
 Costly keeps 20% of every penalty permanently, plus the 80% that goes
-unredeemed. So revenue per user is `total penalties × (0.2 + 0.8 × (1 −
-redemption rate))`, and €100 of revenue implies:
+unredeemed. Revenue per customer is `penalties × (0.2 + 0.8 × (1 −
+redemption rate))`. Working €200 backwards, at a €15/hour self-set rate
+(€0.25/minute):
 
-| If users walk off… | €100/yr requires penalties of |
-| --- | --- |
-| everything (100% redeemed) | €500/yr |
-| half | €167/yr |
-| nothing | €100/yr |
+| If customers walk off… | €200/yr needs penalties of | Billable scrolling |
+| --- | --- | --- |
+| 80% of it | €556/yr | 6.1 min/day |
+| half | €333/yr | 3.7 min/day |
+| 20% | €238/yr | 2.6 min/day |
 
-**€100 is a conservative number, and it is worth saying so out loud.** At a
-€15/hour self-set rate the meter charges €0.25/minute, so €167/year of
-penalties is under two billable minutes a day. Anyone still scrolling 40
-minutes a day past their free allowance generates that in a week.
+**Under four billable minutes a day carries the whole model.** That is the
+argument for €200: it is not an aggressive price, it is what a mildly
+relapsing customer generates almost incidentally. Someone still scrolling 30
+minutes a day past their allowance produces roughly ten times it.
 
-The reason not to model the aggressive number: **this product destroys its
-own revenue when it works.** A user who quits scrolling stops paying. €100
-is therefore best defended as the *steady state of a working product* —
-someone who relapses occasionally, walks most of it off, and re-signs —
-rather than as a monetization target. That framing turns the obvious
-partner objection ("your revenue falls if you succeed") into the number
-already being in the model.
+Two honest counterweights, both of which belong in the answer rather than
+hidden from it:
 
-It also assumes re-contracting: contracts run 7 or 30 days, so €100/year is
-roughly four 30-day contracts at €25, not one annual charge. Retention
+- **The product destroys its own revenue when it works.** A customer who
+  quits stops paying. €200 is the steady state of someone who relapses
+  occasionally, walks most of it off and re-signs — not of an addict left
+  bleeding. Stating this first turns the obvious objection into evidence the
+  model was built with it in view.
+- **€200 is revenue per *active* customer-year, so churn lives in the
+  customer count, not the price.** Contracts run 7 or 30 days, so a €200 year
+  is roughly eight 30-day contracts at €25. Retention across contract
+  boundaries is a real assumption and the alpha measures it.
+
+`[SUPERSEDED]` An earlier draft of this section used €100/customer-year and a
+10%-of-SAM capture. The €100 was low for the reason above; the 10% asserted a
+share instead of deriving one. Both are replaced by the table above, whose
+0.8% capture is small enough to defend and large enough to matter.
+
+Retention
 across contract boundaries is a real assumption and the alpha measures it.
 
-### Why 10% of SAM is the wrong SOM to present
+### Cross-check: the SOM against people who already pay
 
-12.5M customers and €1.25B is the arithmetic answer, and it is in the table
-above because it was asked for. It should not go on a slide. "10% of the
-market" is the single most discounted claim in venture pitching — it asserts
-a share rather than deriving one, and a partner reads it as evidence that
-nobody has thought about distribution.
-
-Apply the same 10% to the **beachhead** instead, and it becomes defensible:
+A top-down capture percentage is worth little on its own. The check that
+matters is whether 250,000 customers is plausible against the population
+that has already proven it will pay for screen-time control.
 
 - Digital detox apps are a **$498M** category today (Valuates, cited above).
-  EU + UK is roughly a quarter of it, so ≈ **€115M** of existing spend.
-- At €40–60/year typical subscription pricing, that implies **~2M people in
-  EU + UK already paying for screen-time control.** `[NEEDS SOURCE — verify
-  against Opal / Freedom / one sec / Forest disclosed subscriber counts]`
-- **10% of proven payers = 200,000 customers × €100 = €20M ARR.**
+  The eight Tier-1 markets are roughly 60% of it, so ≈ **€275M** of existing
+  spend.
+- At €40–60/year typical subscription pricing, that implies **~5.5M people
+  in those markets already paying for screen-time control.** `[NEEDS SOURCE
+  — verify against Opal / Freedom / one sec / Forest disclosed subscriber
+  counts]`
+- **250,000 customers is ~4.5% of people already paying a competitor.**
 
-Same capture assumption, one-sixtieth the claim, and it is anchored to a
-figure already sourced in this section. It also matches the beachhead
-argument above: these are people who have already paid for a blocker and
-relapsed anyway.
-
-A three-year path to it, which is what the €20M actually means:
-
-| | Customers | ARR |
-| --- | --- | --- |
-| Year 1 | 5,000 | €500K |
-| Year 2 | 40,000 | €4M |
-| Year 3 | 200,000 | €20M |
+That is the number to say out loud, because it is the one a partner can
+argue with on its merits: not "we take 0.8% of a market we defined", but
+"one in twenty-two people already buying a blocker switches to the version
+with teeth". These are also exactly the beachhead described above — people
+who paid for soft friction and relapsed anyway.
 
 **The number that is not in any of this** is what share of people will
-attach a card against their own behaviour. Every layer above assumes it away.
-It is the first thing the alpha measures, and no sizing exercise substitutes
-for it.
+attach a card against their own behaviour. The 25% in SAM is an estimate
+carrying more weight than any other figure here. It is the first thing the
+alpha measures, and no sizing exercise substitutes for it.
 
 ## 10. Risks — named first, because they will be found anyway
 

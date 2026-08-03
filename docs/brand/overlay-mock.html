@@ -1,0 +1,135 @@
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0B0D0A;font-family:Inter,system-ui,sans-serif;padding:56px 40px;
+       display:flex;gap:64px;align-items:flex-start;justify-content:center}
+  .col{display:flex;flex-direction:column;align-items:center;gap:18px}
+  .cap{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.22em;color:#2EDB6A}
+  .sub{font-size:13px;color:#98A090;max-width:330px;text-align:center;line-height:1.5}
+  .phone{width:340px;height:700px;border-radius:36px;background:#000;position:relative;
+         overflow:hidden;border:3px solid #22261D;box-shadow:0 24px 60px rgba(0,0,0,.7)}
+  /* --- fake short-video feed (generic, no third-party branding) --- */
+  .feed{position:absolute;inset:0;background:
+        radial-gradient(120% 70% at 30% 15%, #2b3140 0%, #14171d 55%, #0a0c10 100%);}
+  .figure{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);
+          width:200px;height:290px;border-radius:100px 100px 40px 40px;
+          background:linear-gradient(180deg,#3a4152,#242a36);opacity:.85}
+  .figure:after{content:'';position:absolute;left:50%;top:38px;transform:translateX(-50%);
+          width:92px;height:92px;border-radius:50%;background:#4a5265}
+  .rail{position:absolute;right:14px;bottom:150px;display:flex;flex-direction:column;gap:20px}
+  .rail i{display:block;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.14)}
+  .meta{position:absolute;left:16px;right:70px;bottom:56px;color:rgba(255,255,255,.82)}
+  .meta b{display:block;font-size:14px;font-weight:700;margin-bottom:6px}
+  .meta p{font-size:12px;line-height:1.45;color:rgba(255,255,255,.6)}
+  .navbar{position:absolute;left:0;right:0;bottom:0;height:46px;background:rgba(0,0,0,.55);
+          display:flex;align-items:center;justify-content:space-around}
+  .navbar i{width:20px;height:20px;border-radius:5px;background:rgba(255,255,255,.22)}
+  .status{position:absolute;top:0;left:0;right:0;height:30px;display:flex;align-items:center;
+          justify-content:space-between;padding:0 20px;font-size:11px;color:rgba(255,255,255,.75);
+          font-family:'JetBrains Mono',monospace}
+
+  /* --- THE OVERLAY: paws gripping the top edge, holding a meter --- */
+  .overlay{position:absolute;top:0;left:50%;transform:translateX(-50%);
+           display:flex;flex-direction:column;align-items:center;z-index:9}
+  .paw path,.paw rect{stroke:#3a4030;stroke-width:1.5}
+  .hot .paw path,.hot .paw rect{stroke:#7a2a22}
+  .rowgrip{display:flex;align-items:flex-start;gap:0}
+  .meter{background:#0A0A0A;border:2px solid #2b2f26;border-radius:0 0 12px 12px;
+         padding:7px 14px 8px;min-width:104px;display:flex;flex-direction:column;align-items:center;line-height:1;
+         box-shadow:0 6px 18px rgba(0,0,0,.65)}
+  .meter .amt{font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
+  .meter .lbl{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.2em;
+              color:#6b7364;margin-top:3px}
+  .calm .amt{color:#F5B940}
+  .hot  .amt{color:#FF3B2F}
+  .hot .meter{border-color:#FF3B2F}
+  .shout{margin-top:6px;background:#FF3B2F;color:#0A0A0A;font-size:11.5px;font-weight:800;
+         padding:5px 11px;border-radius:9px;box-shadow:0 6px 16px rgba(0,0,0,.6);white-space:nowrap}
+</style>
+
+<div class="col">
+  <div class="cap">OVERLAY // METERING</div>
+  <div class="phone">
+    <div class="feed">
+      <div class="figure"></div>
+      <div class="rail"><i></i><i></i><i></i><i></i></div>
+      <div class="meta"><b>@someone</b><p>watch till the end &#9834;</p></div>
+      <div class="navbar"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="status"><span>12:25</span><span>&#9679;&#9679;&#9679;</span></div>
+    </div>
+
+    <div class="overlay calm">
+      <div class="rowgrip">
+        <!-- left paw -->
+        <svg class="paw" width="34" height="38" viewBox="0 0 30 34">
+          <path d="M2,0 h26 v17 a13,13 0 0 1 -26,0 Z" fill="#0A0A0A"/>
+          <rect x="4"  y="22" width="5" height="9" rx="2.5" fill="#0A0A0A"/>
+          <rect x="12" y="24" width="5" height="10" rx="2.5" fill="#0A0A0A"/>
+          <rect x="20" y="22" width="5" height="9" rx="2.5" fill="#0A0A0A"/>
+        </svg>
+        <div class="meter">
+          <div class="amt">1,75 &euro;</div>
+          <div class="lbl">BURNING</div>
+        </div>
+        <!-- right paw -->
+        <svg class="paw" width="34" height="38" viewBox="0 0 30 34">
+          <path d="M2,0 h26 v17 a13,13 0 0 1 -26,0 Z" fill="#0A0A0A"/>
+          <rect x="5"  y="22" width="5" height="9" rx="2.5" fill="#0A0A0A"/>
+          <rect x="13" y="24" width="5" height="10" rx="2.5" fill="#0A0A0A"/>
+          <rect x="21" y="22" width="5" height="9" rx="2.5" fill="#0A0A0A"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+  <div class="sub"><b style="color:#F2F4EF">Under &euro;10.</b> Two paws and a meter.
+    It never covers the video, and it never stops counting.</div>
+</div>
+
+<div class="col">
+  <div class="cap">OVERLAY // &euro;10 CROSSED</div>
+  <div class="phone">
+    <div class="feed">
+      <div class="figure"></div>
+      <div class="rail"><i></i><i></i><i></i><i></i></div>
+      <div class="meta"><b>@someone</b><p>watch till the end &#9834;</p></div>
+      <div class="navbar"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="status"><span>12:25</span><span>&#9679;&#9679;&#9679;</span></div>
+    </div>
+
+    <div class="overlay hot">
+      <div class="rowgrip">
+        <svg class="paw" width="34" height="38" viewBox="0 0 30 34">
+          <path d="M2,0 h26 v17 a13,13 0 0 1 -26,0 Z" fill="#0A0A0A"/>
+          <rect x="4"  y="22" width="5" height="9" rx="2.5" fill="#0A0A0A"/>
+          <rect x="12" y="24" width="5" height="10" rx="2.5" fill="#0A0A0A"/>
+          <rect x="20" y="22" width="5" height="9" rx="2.5" fill="#0A0A0A"/>
+        </svg>
+
+        <!-- eyes sit ABOVE the meter, peering over the top edge -->
+        <div style="display:flex;flex-direction:column;align-items:center">
+          <svg width="88" height="30" viewBox="0 0 88 30" style="margin-bottom:-2px">
+            <path d="M0,0 h88 v12 a44,17 0 0 1 -88,0 Z" fill="#0A0A0A" stroke="#7a2a22" stroke-width="1.5"/>
+            <polygon points="13,6 35,14 34,19 13,11"  fill="#FF3B2F"/>
+            <polygon points="75,6 53,14 54,19 75,11"  fill="#FF3B2F"/>
+            <circle cx="26" cy="13.2" r="2.6" fill="#0A0A0A"/>
+            <circle cx="62" cy="13.2" r="2.6" fill="#0A0A0A"/>
+          </svg>
+          <div class="meter">
+            <div class="amt">10,40 &euro;</div>
+            <div class="lbl">BURNING</div>
+          </div>
+        </div>
+
+        <svg class="paw" width="34" height="38" viewBox="0 0 30 34">
+          <path d="M2,0 h26 v17 a13,13 0 0 1 -26,0 Z" fill="#0A0A0A"/>
+          <rect x="5"  y="22" width="5" height="9" rx="2.5" fill="#0A0A0A"/>
+          <rect x="13" y="24" width="5" height="10" rx="2.5" fill="#0A0A0A"/>
+          <rect x="21" y="22" width="5" height="9" rx="2.5" fill="#0A0A0A"/>
+        </svg>
+      </div>
+      <div class="shout">That&rsquo;s so much money.</div>
+    </div>
+  </div>
+  <div class="sub"><b style="color:#F2F4EF">Past &euro;10.</b> The eyes open and the cat speaks.
+    Same footprint, louder.</div>
+</div>

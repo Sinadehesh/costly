@@ -1,5 +1,5 @@
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@700&display=swap');
   *{margin:0;padding:0;box-sizing:border-box}
   body{background:#0B0D0A;font-family:Inter,system-ui,sans-serif;padding:56px 40px;
        display:flex;gap:64px;align-items:flex-start;justify-content:center}
@@ -9,7 +9,7 @@
   .phone{width:340px;height:700px;border-radius:36px;background:#000;position:relative;
          overflow:hidden;border:3px solid #22261D;box-shadow:0 24px 60px rgba(0,0,0,.7)}
 
-  /* ---- generic short-video frame: a sunset street scene ---- */
+  /* ---- generic short-video frame ---- */
   .feed{position:absolute;inset:0;overflow:hidden}
   .status{position:absolute;top:0;left:0;right:0;height:30px;display:flex;align-items:center;
           justify-content:space-between;padding:0 20px;font-size:11px;color:rgba(255,255,255,.85);
@@ -28,35 +28,29 @@
           display:flex;align-items:center;justify-content:space-around;z-index:4}
   .navbar i{width:19px;height:19px;border-radius:5px;background:rgba(255,255,255,.3)}
 
-  /* ---- THE OVERLAY ---- */
-  .overlay{position:absolute;top:0;left:50%;transform:translateX(-50%);
-           display:flex;flex-direction:column;align-items:center;z-index:9}
-  .grip{display:flex;align-items:flex-start;gap:0}
-  .meter{background:#0A0A0A;border:2px solid #2b2f26;border-radius:0 0 13px 13px;
-         padding:7px 14px 8px;min-width:106px;display:flex;flex-direction:column;
-         align-items:center;line-height:1;box-shadow:0 7px 20px rgba(0,0,0,.75)}
-  .meter .amt{font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:700;
-              letter-spacing:.02em;white-space:nowrap}
-  .meter .lbl{font-family:'JetBrains Mono',monospace;font-size:7.5px;letter-spacing:.2em;
-              color:#6b7364;margin-top:4px}
-  .calm .amt{color:#F5B940}
-  .hot  .amt{color:#FF3B2F}
-  .hot  .meter{border-color:#FF3B2F}
-  .shout{margin-top:7px;background:#FF3B2F;color:#0A0A0A;font-size:11.5px;font-weight:800;
-         padding:5px 12px;border-radius:9px;white-space:nowrap;
-         box-shadow:0 6px 18px rgba(0,0,0,.7)}
+  /* ---- THE OVERLAY CARD ----
+     Same recipe as CatWidget: border-4 border-bg/70, radius 16,
+     6px 6px 0 hard shadow, TONE_BG background, cat left / words right. */
+  .wrap{position:absolute;top:38px;left:0;right:0;display:flex;justify-content:center;z-index:9}
+  .card{display:flex;align-items:center;gap:9px;
+        border:4px solid rgba(11,13,10,.7);border-radius:16px;padding:9px 13px 9px 9px;
+        box-shadow:6px 6px 0 0 rgba(0,0,0,.55)}
+  .card svg{flex:none}
+  .amt{font-family:'JetBrains Mono',monospace;font-size:23px;font-weight:700;
+       color:#0B0D0A;line-height:1;letter-spacing:.01em;white-space:nowrap}
+  .say{font-size:12px;font-weight:700;color:rgba(11,13,10,.82);margin-top:4px;
+       line-height:1.25;white-space:nowrap}
+  .rot-a{transform:rotate(-1.4deg)}
+  .rot-b{transform:rotate(1.2deg)}
 </style>
 
-<!-- Reusable scene: a generic sunset street, so the frame is not empty.
-     Deliberately not any real app's UI or content. -->
 <svg width="0" height="0" style="position:absolute">
+  <!-- generic sunset street, so the frame is not empty -->
   <symbol id="scene" viewBox="0 0 340 700" preserveAspectRatio="xMidYMid slice">
     <defs>
       <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0"   stop-color="#2b1f3d"/>
-        <stop offset=".42" stop-color="#7a3b52"/>
-        <stop offset=".62" stop-color="#c9663f"/>
-        <stop offset=".78" stop-color="#e8a04a"/>
+        <stop offset="0" stop-color="#2b1f3d"/><stop offset=".42" stop-color="#7a3b52"/>
+        <stop offset=".62" stop-color="#c9663f"/><stop offset=".78" stop-color="#e8a04a"/>
       </linearGradient>
       <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0" stop-color="#2a2028"/><stop offset="1" stop-color="#15121a"/>
@@ -65,32 +59,46 @@
     <rect width="340" height="700" fill="url(#sky)"/>
     <circle cx="170" cy="430" r="52" fill="#ffd08a" opacity=".95"/>
     <g fill="#241b2c">
-      <rect x="-4"  y="300" width="52" height="200"/>
-      <rect x="44"  y="352" width="40" height="148"/>
-      <rect x="88"  y="322" width="34" height="178"/>
-      <rect x="214" y="336" width="44" height="164"/>
-      <rect x="252" y="296" width="38" height="204"/>
-      <rect x="288" y="344" width="56" height="156"/>
+      <rect x="-4" y="300" width="52" height="200"/><rect x="44" y="352" width="40" height="148"/>
+      <rect x="88" y="322" width="34" height="178"/><rect x="214" y="336" width="44" height="164"/>
+      <rect x="252" y="296" width="38" height="204"/><rect x="288" y="344" width="56" height="156"/>
     </g>
     <g fill="#ffd9a0" opacity=".5">
-      <rect x="6"  y="318" width="7" height="9"/><rect x="22" y="340" width="7" height="9"/>
+      <rect x="6" y="318" width="7" height="9"/><rect x="22" y="340" width="7" height="9"/>
       <rect x="54" y="368" width="7" height="9"/><rect x="96" y="338" width="7" height="9"/>
       <rect x="262" y="312" width="7" height="9"/><rect x="298" y="360" width="7" height="9"/>
     </g>
     <rect y="498" width="340" height="202" fill="url(#road)"/>
     <g stroke="#c9a06a" stroke-width="5" opacity=".45" stroke-linecap="round">
-      <line x1="170" y1="512" x2="170" y2="540"/>
-      <line x1="170" y1="562" x2="170" y2="602"/>
+      <line x1="170" y1="512" x2="170" y2="540"/><line x1="170" y1="562" x2="170" y2="602"/>
       <line x1="170" y1="632" x2="170" y2="695"/>
     </g>
     <g fill="#171320">
-      <circle cx="196" cy="396" r="17"/>
-      <path d="M180,416 h32 l7,66 h-46 Z"/>
+      <circle cx="196" cy="396" r="17"/><path d="M180,416 h32 l7,66 h-46 Z"/>
       <path d="M186,482 l-9,74 h13 l11,-56 l9,56 h13 l-8,-74 Z"/>
-      <path d="M180,424 l-16,42 6,3 18,-38 Z"/>
-      <path d="M212,424 l17,40 -6,3 -19,-36 Z"/>
+      <path d="M180,424 l-16,42 6,3 18,-38 Z"/><path d="M212,424 l17,40 -6,3 -19,-36 Z"/>
     </g>
     <ellipse cx="196" cy="562" rx="34" ry="7" fill="#000" opacity=".35"/>
+  </symbol>
+
+  <!-- THE CAT, complete, geometry verbatim from Cat.tsx (viewBox 0 0 112 84) -->
+  <symbol id="cat-base" viewBox="0 0 112 84">
+    <path d="M92,80 q16,-4 12,-20 q-2,-9 -8,-9" fill="none" stroke="#0a0a0a"
+          stroke-width="6" stroke-linecap="round"/>
+    <g stroke="#0a0a0a" stroke-width="2" stroke-linecap="round">
+      <line x1="7" y1="47" x2="34" y2="50"/><line x1="7" y1="56" x2="34" y2="55"/>
+      <line x1="93" y1="47" x2="66" y2="50"/><line x1="93" y1="56" x2="66" y2="55"/>
+    </g>
+    <polygon points="26,24 33,3 49,18" fill="#0a0a0a"/>
+    <polygon points="74,24 67,3 51,18" fill="#0a0a0a"/>
+    <path d="M14,66 V46 a36,33 0 0 1 72,0 V66 Z" fill="#0a0a0a"/>
+  </symbol>
+  <symbol id="cat-paws" viewBox="0 0 112 84">
+    <g fill="#0a0a0a">
+      <rect x="27" y="60" width="6" height="18" rx="3"/><rect x="34" y="60" width="6" height="18" rx="3"/>
+      <rect x="41" y="60" width="6" height="18" rx="3"/><rect x="53" y="60" width="6" height="18" rx="3"/>
+      <rect x="60" y="60" width="6" height="18" rx="3"/><rect x="67" y="60" width="6" height="18" rx="3"/>
+    </g>
   </symbol>
 </svg>
 
@@ -106,29 +114,25 @@
       <div class="navbar"><i></i><i></i><i></i><i></i><i></i></div>
     </div>
 
-    <div class="overlay calm">
-      <div class="grip">
-        <!-- canonical paws: three 6x18 rx3 bars, exactly as Cat.tsx draws them -->
-        <svg width="26" height="24" viewBox="26.5 60 21 18">
-          <g fill="#0a0a0a">
-            <rect x="27" y="60" width="6" height="18" rx="3"/>
-            <rect x="34" y="60" width="6" height="18" rx="3"/>
-            <rect x="41" y="60" width="6" height="18" rx="3"/>
-          </g>
+    <div class="wrap">
+      <div class="card rot-a" style="background:#d9a441">
+        <svg width="62" height="47" viewBox="0 0 112 84">
+          <use href="#cat-base"/>
+          <!-- smug: round eyes, small smile -->
+          <circle cx="39" cy="46" r="7" fill="#fff"/><circle cx="61" cy="46" r="7" fill="#fff"/>
+          <circle cx="40" cy="47.5" r="3" fill="#0a0a0a"/><circle cx="62" cy="47.5" r="3" fill="#0a0a0a"/>
+          <path d="M44 56 q6 5 12 0" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+          <use href="#cat-paws"/>
         </svg>
-        <div class="meter"><div class="amt">1,75 &euro;</div><div class="lbl">BURNING</div></div>
-        <svg width="26" height="24" viewBox="52.5 60 21 18">
-          <g fill="#0a0a0a">
-            <rect x="53" y="60" width="6" height="18" rx="3"/>
-            <rect x="60" y="60" width="6" height="18" rx="3"/>
-            <rect x="67" y="60" width="6" height="18" rx="3"/>
-          </g>
-        </svg>
+        <div>
+          <div class="amt">1,75 &euro;</div>
+          <div class="say">Keep going. Please.</div>
+        </div>
       </div>
     </div>
   </div>
-  <div class="sub"><b style="color:#F2F4EF">Under &euro;10.</b> Two paws and a meter.
-    It never covers the video, and it never stops counting.</div>
+  <div class="sub"><b style="color:#F2F4EF">Under &euro;10.</b> The cat rides along the top of
+    the feed, holding the meter. It never covers the video.</div>
 </div>
 
 <div class="col">
@@ -143,44 +147,25 @@
       <div class="navbar"><i></i><i></i><i></i><i></i><i></i></div>
     </div>
 
-    <div class="overlay hot">
-      <div class="grip">
-        <svg width="26" height="24" viewBox="26.5 60 21 18">
-          <g fill="#0a0a0a">
-            <rect x="27" y="60" width="6" height="18" rx="3"/>
-            <rect x="34" y="60" width="6" height="18" rx="3"/>
-            <rect x="41" y="60" width="6" height="18" rx="3"/>
-          </g>
+    <div class="wrap">
+      <div class="card rot-b" style="background:#ef4444">
+        <svg width="62" height="47" viewBox="0 0 112 84">
+          <use href="#cat-base"/>
+          <!-- unhinged: verbatim from Cat.tsx -->
+          <polygon points="30,41 47,48 46,53 30,47" fill="#fff"/>
+          <polygon points="70,41 53,48 54,53 70,47" fill="#fff"/>
+          <circle cx="39" cy="47" r="2.6" fill="#0a0a0a"/>
+          <circle cx="61" cy="47" r="2.6" fill="#0a0a0a"/>
+          <ellipse cx="50" cy="59" rx="6.5" ry="5" fill="#fff"/>
+          <use href="#cat-paws"/>
         </svg>
-
-        <div style="display:flex;flex-direction:column;align-items:center">
-          <!-- the head, cropped by the screen edge: whiskers + unhinged eyes,
-               geometry lifted verbatim from Cat.tsx -->
-          <svg width="108" height="30" viewBox="5 40 90 25" style="margin-bottom:-1px">
-            <g stroke="#0a0a0a" stroke-width="2" stroke-linecap="round">
-              <line x1="7" y1="47" x2="34" y2="50"/><line x1="7" y1="56" x2="34" y2="55"/>
-              <line x1="93" y1="47" x2="66" y2="50"/><line x1="93" y1="56" x2="66" y2="55"/>
-            </g>
-            <path d="M14,66 V46 a36,33 0 0 1 72,0 V66 Z" fill="#0a0a0a"/>
-            <polygon points="30,41 47,48 46,53 30,47" fill="#FF3B2F"/>
-            <polygon points="70,41 53,48 54,53 70,47" fill="#FF3B2F"/>
-            <circle cx="39" cy="47" r="2.6" fill="#0a0a0a"/>
-            <circle cx="61" cy="47" r="2.6" fill="#0a0a0a"/>
-          </svg>
-          <div class="meter"><div class="amt">10,40 &euro;</div><div class="lbl">BURNING</div></div>
+        <div>
+          <div class="amt">10,40 &euro;</div>
+          <div class="say">That&rsquo;s so much money.</div>
         </div>
-
-        <svg width="26" height="24" viewBox="52.5 60 21 18">
-          <g fill="#0a0a0a">
-            <rect x="53" y="60" width="6" height="18" rx="3"/>
-            <rect x="60" y="60" width="6" height="18" rx="3"/>
-            <rect x="67" y="60" width="6" height="18" rx="3"/>
-          </g>
-        </svg>
       </div>
-      <div class="shout">That&rsquo;s so much money.</div>
     </div>
   </div>
-  <div class="sub"><b style="color:#F2F4EF">Past &euro;10.</b> The eyes open and the cat speaks.
-    Same footprint, louder.</div>
+  <div class="sub"><b style="color:#F2F4EF">Past &euro;10.</b> The card goes red, the eyes go
+    unhinged, and the cat says the quiet part.</div>
 </div>

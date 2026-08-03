@@ -28,24 +28,25 @@
           display:flex;align-items:center;justify-content:space-around;z-index:4}
   .navbar i{width:19px;height:19px;border-radius:5px;background:rgba(255,255,255,.3)}
 
-  /* ---- THE OVERLAY CARD ----
-     Same recipe as CatWidget: border-4 border-bg/70, radius 16,
-     6px 6px 0 hard shadow, TONE_BG background, cat left / words right. */
-  .wrap{position:absolute;top:38px;left:0;right:0;display:flex;justify-content:center;z-index:9}
-  .card{display:flex;align-items:center;gap:9px;
-        border:4px solid rgba(11,13,10,.7);border-radius:16px;padding:9px 13px 9px 9px;
-        box-shadow:6px 6px 0 0 rgba(0,0,0,.55)}
-  .card svg{flex:none}
-  .amt{font-family:'JetBrains Mono',monospace;font-size:23px;font-weight:700;
-       color:#0B0D0A;line-height:1;letter-spacing:.01em;white-space:nowrap}
-  .say{font-size:12px;font-weight:700;color:rgba(11,13,10,.82);margin-top:4px;
-       line-height:1.25;white-space:nowrap}
-  .rot-a{transform:rotate(-1.4deg)}
-  .rot-b{transform:rotate(1.2deg)}
+  /* ---- THE STRIP: as thin as it can be and still say the number ----
+     Card DNA kept from CatWidget (border, hard shadow, TONE_BG); only the
+     paws of the cat show, hanging into the bar from above. */
+  .wrap{position:absolute;top:36px;left:0;right:0;display:flex;flex-direction:column;
+        align-items:center;gap:5px;z-index:9}
+  .strip{display:flex;align-items:stretch;gap:9px;height:30px;overflow:hidden;
+         border:3px solid rgba(11,13,10,.72);border-radius:11px;padding:0 11px;
+         box-shadow:4px 4px 0 0 rgba(0,0,0,.5)}
+  .strip svg{flex:none;display:block;margin-top:-1px}
+  .amt{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700;
+       color:#0B0D0A;line-height:24px;letter-spacing:.01em;white-space:nowrap;align-self:center}
+  .say{font-size:11px;font-weight:800;color:#0B0D0A;white-space:nowrap;
+       border:3px solid rgba(11,13,10,.72);border-radius:9px;padding:2px 9px;
+       box-shadow:4px 4px 0 0 rgba(0,0,0,.5)}
+  .rot-a{transform:rotate(-1.2deg)}
+  .rot-b{transform:rotate(1deg)}
 </style>
 
 <svg width="0" height="0" style="position:absolute">
-  <!-- generic sunset street, so the frame is not empty -->
   <symbol id="scene" viewBox="0 0 340 700" preserveAspectRatio="xMidYMid slice">
     <defs>
       <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
@@ -81,23 +82,20 @@
     <ellipse cx="196" cy="562" rx="34" ry="7" fill="#000" opacity=".35"/>
   </symbol>
 
-  <!-- THE CAT, complete, geometry verbatim from Cat.tsx (viewBox 0 0 112 84) -->
-  <symbol id="cat-base" viewBox="0 0 112 84">
-    <path d="M92,80 q16,-4 12,-20 q-2,-9 -8,-9" fill="none" stroke="#0a0a0a"
-          stroke-width="6" stroke-linecap="round"/>
-    <g stroke="#0a0a0a" stroke-width="2" stroke-linecap="round">
-      <line x1="7" y1="47" x2="34" y2="50"/><line x1="7" y1="56" x2="34" y2="55"/>
-      <line x1="93" y1="47" x2="66" y2="50"/><line x1="93" y1="56" x2="66" y2="55"/>
-    </g>
-    <polygon points="26,24 33,3 49,18" fill="#0a0a0a"/>
-    <polygon points="74,24 67,3 51,18" fill="#0a0a0a"/>
-    <path d="M14,66 V46 a36,33 0 0 1 72,0 V66 Z" fill="#0a0a0a"/>
-  </symbol>
-  <symbol id="cat-paws" viewBox="0 0 112 84">
+  <!-- Left and right paw clusters, cropped to the bars only.
+       Rect geometry verbatim from Cat.tsx: 6 wide, 18 tall, rx 3. -->
+  <symbol id="paw-l" viewBox="26.6 60 20.8 18">
     <g fill="#0a0a0a">
-      <rect x="27" y="60" width="6" height="18" rx="3"/><rect x="34" y="60" width="6" height="18" rx="3"/>
-      <rect x="41" y="60" width="6" height="18" rx="3"/><rect x="53" y="60" width="6" height="18" rx="3"/>
-      <rect x="60" y="60" width="6" height="18" rx="3"/><rect x="67" y="60" width="6" height="18" rx="3"/>
+      <rect x="27" y="60" width="6" height="18" rx="3"/>
+      <rect x="34" y="60" width="6" height="18" rx="3"/>
+      <rect x="41" y="60" width="6" height="18" rx="3"/>
+    </g>
+  </symbol>
+  <symbol id="paw-r" viewBox="52.6 60 20.8 18">
+    <g fill="#0a0a0a">
+      <rect x="53" y="60" width="6" height="18" rx="3"/>
+      <rect x="60" y="60" width="6" height="18" rx="3"/>
+      <rect x="67" y="60" width="6" height="18" rx="3"/>
     </g>
   </symbol>
 </svg>
@@ -115,24 +113,15 @@
     </div>
 
     <div class="wrap">
-      <div class="card rot-a" style="background:#d9a441">
-        <svg width="62" height="47" viewBox="0 0 112 84">
-          <use href="#cat-base"/>
-          <!-- smug: round eyes, small smile -->
-          <circle cx="39" cy="46" r="7" fill="#fff"/><circle cx="61" cy="46" r="7" fill="#fff"/>
-          <circle cx="40" cy="47.5" r="3" fill="#0a0a0a"/><circle cx="62" cy="47.5" r="3" fill="#0a0a0a"/>
-          <path d="M44 56 q6 5 12 0" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
-          <use href="#cat-paws"/>
-        </svg>
-        <div>
-          <div class="amt">1,75 &euro;</div>
-          <div class="say">Keep going. Please.</div>
-        </div>
+      <div class="strip rot-a" style="background:#d9a441">
+        <svg width="20" height="17"><use href="#paw-l"/></svg>
+        <div class="amt">1,75 &euro;</div>
+        <svg width="20" height="17"><use href="#paw-r"/></svg>
       </div>
     </div>
   </div>
-  <div class="sub"><b style="color:#F2F4EF">Under &euro;10.</b> The cat rides along the top of
-    the feed, holding the meter. It never covers the video.</div>
+  <div class="sub"><b style="color:#F2F4EF">Metering.</b> 30px tall. Only the paws show,
+    hanging in from above. The number is the whole message.</div>
 </div>
 
 <div class="col">
@@ -148,24 +137,14 @@
     </div>
 
     <div class="wrap">
-      <div class="card rot-b" style="background:#ef4444">
-        <svg width="62" height="47" viewBox="0 0 112 84">
-          <use href="#cat-base"/>
-          <!-- unhinged: verbatim from Cat.tsx -->
-          <polygon points="30,41 47,48 46,53 30,47" fill="#fff"/>
-          <polygon points="70,41 53,48 54,53 70,47" fill="#fff"/>
-          <circle cx="39" cy="47" r="2.6" fill="#0a0a0a"/>
-          <circle cx="61" cy="47" r="2.6" fill="#0a0a0a"/>
-          <ellipse cx="50" cy="59" rx="6.5" ry="5" fill="#fff"/>
-          <use href="#cat-paws"/>
-        </svg>
-        <div>
-          <div class="amt">10,40 &euro;</div>
-          <div class="say">That&rsquo;s so much money.</div>
-        </div>
+      <div class="strip rot-b" style="background:#ef4444">
+        <svg width="20" height="17"><use href="#paw-l"/></svg>
+        <div class="amt">10,40 &euro;</div>
+        <svg width="20" height="17"><use href="#paw-r"/></svg>
       </div>
+      <div class="say rot-b" style="background:#ef4444">That&rsquo;s so much money.</div>
     </div>
   </div>
-  <div class="sub"><b style="color:#F2F4EF">Past &euro;10.</b> The card goes red, the eyes go
-    unhinged, and the cat says the quiet part.</div>
+  <div class="sub"><b style="color:#F2F4EF">Past &euro;10.</b> Same strip, red, and one line
+    drops underneath. It goes away again when the number does.</div>
 </div>

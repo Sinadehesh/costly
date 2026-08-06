@@ -321,16 +321,267 @@ behavior. That is a narrower gate than "scrolls too much," and no amount of
 market sizing substitutes for measuring it. It is the first number the alpha
 produces.
 
-`[NEEDS SOURCE]` — before submitting, build the bottom-up: paying users
-across Opal / Freedom / one sec / FocusMe × plausible conversion. A
-sourced bottom-up beats a borrowed TAM in every partner meeting.
+### The ladder
+
+**One rule: every ring is `customers × ARPU`, using the same ARPU.** Mixing a
+third-party market size into a ladder that otherwise computes your own
+revenue makes the rings non-comparable, and a partner spots it immediately.
+Published category sizes belong in the two bullets at the top of this
+section, as evidence the category is real — never as a ring value.
+
+ARPU is **€200 per active customer-year**, derived below.
+
+| | Who | Filter | Customers | ARPU | Value |
+| --- | --- | --- | --- | --- | --- |
+| *context* | Smartphone users worldwide | — | 4.9B | — | *not a market* |
+| **TAM** | Adults in card-mature markets who want to cut their screen time | — | ~425M | €120 | **€51B** |
+| **SAM** | Tier-1 launch markets, either platform, who would put money at stake | DE·NL·UK·IE·Nordics·US·CA·AU | ~57M | €400 | **€22.9B** |
+| **SOM** | Year 3 | 0.2% of SAM | 113K | €885 | **€100M ARR** |
+
+Derivation, so every step can be attacked separately:
+
+- Adult smartphone users in the eight Tier-1 markets ≈ **459M**; across all
+  card-mature markets ≈ **850M**. `[NEEDS SOURCE]`
+- **~50%** say they want to reduce their screen time. `[NEEDS SOURCE]` —
+  the softest number in the ladder, and the one to source first.
+- **No platform filter.** SAM covers both platforms; iOS is a build in
+  progress rather than a future market, so gating SAM on Android would
+  understate it by **26M customers and €10.6B**. See the iOS note below for
+  what the iOS product can and cannot do.
+- **~25%** would consider putting money at stake against their own
+  behaviour. `[NEEDS SOURCE]` This is the gate the alpha exists to measure,
+  and it is deliberately inside SAM rather than assumed away.
+- Only the market list separates SAM from TAM now, which makes SAM→TAM a
+  matter of expansion rather than of platform engineering.
+
+The Year 3 ramp behind the SOM: **5K → 28K → 113K** customers, i.e.
+**€4.4M → €25M → €100M** at €885.
+
+### Deriving ARPU from the cohort's own numbers
+
+The interviews give one hard input: **€15/hour is the most common self-set
+rate.** Build up from there rather than picking a price.
+
+Start with the raw week — one hour a day of scrolling past the free
+allowance, which is a fair description of the beachhead:
+
+| | Per day | Per week |
+| --- | --- | --- |
+| Penalty at €15/h | €15.00 | €105.00 |
+| Burn, permanent (20%) | €3.00 | €21.00 |
+| Purgatory, walkable (80%) | €12.00 | €84.00 |
+
+If five of seven days get walked off, revenue is €21 burn + €24 unredeemed =
+**€45/week, or €2,340/year.** That number is wrong, and the three reasons it
+is wrong are all worth knowing.
+
+**1. That redemption rate is not physically available.** At `SWEAT_RATIO = 2`,
+one hour of scrolling costs two hours of verified walking. Walking off five
+days is **ten hours on foot per week** — 86 minutes every day. Almost nobody
+sustains that, so real redemption will land far below 70%. That pushes
+revenue *up*, which is the wrong kind of good news: it means the 80% is
+advertised as walkable and is in practice unreachable. See the ratio note in
+§10.
+
+**2. Nobody pays it.** €2,340/year is **156 hours of the customer's own
+stated wage** — they told us an hour is worth €15, and this bills them a
+month of working life annually. What actually happens at €45/week is a
+chargeback, an uninstall, or a furious cohort, not fifty-two weeks of
+revenue.
+
+**3. It assumes the product fails.** Fifty-two unchanged weeks of hour-a-day
+overage means Costly did nothing. If it works, billable time decays and so
+does revenue.
+
+So the raw week is a **ceiling**, not an ARPU. Apply a decay curve and
+ordinary consumer churn (15%/month), holding redemption at a realistic 35%:
+
+| Month | Overage | Still active | Revenue/active |
+| --- | --- | --- | --- |
+| 1 | 1.00 h/day | 100% | €324 |
+| 3 | 0.45 h/day | 72% | €146 |
+| 6 | 0.28 h/day | 44% | €91 |
+| 12 | 0.20 h/day | 17% | €65 |
+
+**≈ €885 of revenue per acquired customer over twelve months.** Sensitivity
+on the redemption rate, which is the least known input: €1,033 at 20%
+redeemed, €738 at 50%, €541 at 70%.
+
+That is the number to use. It is 4× the €200 an earlier draft assumed and
+roughly a third of the raw-week ceiling.
+
+**The useful consequence: a higher ARPU means fewer customers, not a bigger
+claim.** €50M of ARR needs 250,000 customers at €200 and **56,000 at €885**.
+Fifty-six thousand customers across eight markets is a materially more
+credible plan than a quarter of a million.
+
+### Why the ladder's ARPU rises as it narrows
+
+A single ARPU across all three rings would be wrong here, because
+penalty-funded revenue varies by roughly fifty times between a light user
+and a heavy one. Multiplying a continent-sized population by a heavy-user
+ARPU produces a fantasy number, and a partner will say so.
+
+State the ARPU on each ring instead. It rising as the rings narrow is the
+argument, not an embarrassment:
+
+| Ring | Customers | ARPU | Why this ARPU |
+| --- | --- | --- | --- |
+| **TAM** | 425M | €120 | blended — most people have minutes of overage, not an hour |
+| **SAM** | 57M | €400 | self-selected: someone willing to stake money has a bigger problem |
+| **SOM** | 100K | €885 | the beachhead, on the measured decay curve |
+
+> The narrower the ring, the more each customer is worth, because the people
+> who will stake money are the people with the worst problem.
+
+Two honest counterweights, both of which belong in the answer rather than
+hidden from it:
+
+- **The product destroys its own revenue when it works.** A customer who
+  quits stops paying. €200 is the steady state of someone who relapses
+  occasionally, walks most of it off and re-signs — not of an addict left
+  bleeding. Stating this first turns the obvious objection into evidence the
+  model was built with it in view.
+- **€200 is revenue per *active* customer-year, so churn lives in the
+  customer count, not the price.** Contracts run 7 or 30 days, so a €200 year
+  is roughly eight 30-day contracts at €25. Retention across contract
+  boundaries is a real assumption and the alpha measures it.
+
+`[SUPERSEDED]` An earlier draft of this section used €100/customer-year and a
+10%-of-SAM capture. The €100 was low for the reason above; the 10% asserted a
+share instead of deriving one. Both are replaced by the table above, whose
+0.8% capture is small enough to defend and large enough to matter.
+
+Retention
+across contract boundaries is a real assumption and the alpha measures it.
+
+### Cross-check: the SOM against people who already pay
+
+A top-down capture percentage is worth little on its own. The check that
+matters is whether 250,000 customers is plausible against the population
+that has already proven it will pay for screen-time control.
+
+- Digital detox apps are a **$498M** category today (Valuates, cited above).
+  The eight Tier-1 markets are roughly 60% of it, so ≈ **€275M** of existing
+  spend.
+- At €40–60/year typical subscription pricing, that implies **~5.5M people
+  in those markets already paying for screen-time control.** `[NEEDS SOURCE
+  — verify against Opal / Freedom / one sec / Forest disclosed subscriber
+  counts]`
+- **250,000 customers is ~4.5% of people already paying a competitor.**
+
+That is the number to say out loud, because it is the one a partner can
+argue with on its merits: not "we take 0.8% of a market we defined", but
+"one in twenty-two people already buying a blocker switches to the version
+with teeth". These are also exactly the beachhead described above — people
+who paid for soft friction and relapsed anyway.
+
+**The number that is not in any of this** is what share of people will
+attach a card against their own behaviour. The 25% in SAM is an estimate
+carrying more weight than any other figure here. It is the first thing the
+alpha measures, and no sizing exercise substitutes for it.
+
+### The iOS note — SAM counts it, but it is a different product
+
+iOS is in SAM because it is being built. What it will not be is a port: the
+platform does not expose what the Android engine uses, so the iOS product is
+**coarser by construction**, and the pitch should say so before a technical
+partner asks.
+
+- **There is no foreground-app API.** The only sanctioned route is the Screen
+  Time family — FamilyControls, DeviceActivity, ManagedSettings (iOS 15+).
+  It reports usage against an opaque, user-selected app set; it never tells
+  you which app is frontmost.
+- **Threshold callbacks, not a live meter.** `DeviceActivityEvent` fires when
+  a usage threshold is crossed. So iOS bills in blocks — a penalty per N
+  minutes of usage — where Android meters per minute. The odometer UI becomes
+  a block counter.
+- **The monitor extension is effectively offline.** `DeviceActivityMonitor`
+  runs under tight memory limits with no dependable network access, so it
+  cannot call the API at the moment of the event. State reconciles when the
+  main app next opens, which weakens the dead man's switch on iOS.
+- **The 2-of-3 engagement vote cannot be ported.** No background gyroscope
+  correlation with a specific app, no per-app network stats. You inherit
+  Apple's own accounting instead: more trustworthy for *was it open*, blind
+  to *was it being used*. A phone left on Instagram in a pocket is billable
+  on iOS in a way the Android design deliberately prevents — which matters
+  because the 20% burn is permanent.
+- **The real schedule risk is the entitlement, not the code.** The
+  FamilyControls distribution entitlement requires Apple's approval, and
+  review may also question charging real money tied to an on-device
+  restriction. Neither is a month-long engineering problem; both are
+  calendar risk outside our control.
+
+**How to present it:** iOS ships as a block-billed version with the same
+contract, wishlist and redemption loop, and Android remains the
+high-fidelity build. That is honest, it still justifies counting iOS in SAM,
+and it turns a limitation into evidence the platforms were understood rather
+than assumed.
+
+### Justifying revenue above €100M
+
+Do not reach for a bigger market. Reach for the customer count, because at
+this ARPU it is unusually small:
+
+| Annual revenue | Customers acquired per year |
+| --- | --- |
+| €50M | 56,000 |
+| **€100M** | **113,000** |
+| €150M | 169,000 |
+| €250M | 282,000 |
+
+**€100M is 113,000 customers a year — about 9,400 a month, and 1.9% of the
+~6M people in Tier-1 markets already paying for a blocker.** That is the
+whole argument, and it is a distribution claim rather than a market claim,
+which is the kind a partner can actually assess. Competing consumer
+subscriptions need five to ten times the customers for the same revenue.
+
+This is why ARPU is the lever worth defending and user count is not: at the
+€200 an earlier draft assumed, €100M needs 500,000 customers, which is a
+different and much harder company.
+
+**Three sources of headroom above that**, in descending order of confidence:
+
+1. **Market expansion.** SAM is eight markets. Adding the rest of the EU,
+   Japan and Korea is localisation and payment plumbing, not new thesis.
+2. **The engine generalises to any detectable phone behaviour.** Detection →
+   charge → redeem-by-walking is not specific to Instagram. Gambling apps
+   are the obvious second target: the harm per hour is far higher, the
+   self-exclusion infrastructure is regulated and already funded, and the
+   rate a user sets against a slot machine is not €15/hour. Shopping and
+   gaming follow. This is the strongest structural answer to "does this cap
+   out", because it multiplies the addressable behaviour rather than
+   inflating any single figure.
+3. **The employer inversion.** Same engine, opposite money flow: the employer
+   funds the deposit and the employee earns it back. It opens a B2B channel
+   and, more usefully, it removes the predatory reading entirely, because
+   nobody is charging the user anything.
+
+**Two things not to claim.** First, a high-rate segment. Blending in
+professionals at €40–90/hour would take ARPU to ~€1,560 and drop the €100M
+requirement to 64,000 customers, but users *set their own rate knowing it
+will be charged*, so self-set rates skew low by construction. The cohort's
+€15 median may be closer to a ceiling than a midpoint, and this must be
+measured before it is modelled. Second, do not present a Year 5 figure with
+confidence. Pre-revenue, the credible register is *here is why the ceiling
+is high, and here is the one measurement that decides it* — not a five-year
+curve.
+
+**What actually gates all of it** is the card-attach rate and whether
+relapse-driven reactivation works. Addiction relapses; a customer who leaves
+and returns six months later is normal for this behaviour and materially
+raises lifetime value. Neither number exists yet, and both come out of the
+alpha.
 
 ## 10. Risks — named first, because they will be found anyway
 
 | Risk | Status |
 | --- | --- |
 | A false positive charges someone unfairly | Mitigated by design: screen-on gate, 2-of-3 signal vote, per-session cap. **Open:** gyroscope thresholds are first-pass estimates and need on-device tuning before real cards. |
+| **The 2:1 sweat ratio may put the refund out of reach** | Surfaced by the §9 unit-economics work. One hour of scrolling owes two hours of verified walking, so a beachhead user with an hour a day of overage would need **ten hours on foot per week** to walk off five days. If almost nobody can reach it, the 80% is advertised as refundable and is functionally a fine — which raises revenue, chargebacks and the predatory reading all at once. **Open:** the alpha must report the realised redemption rate, and `SWEAT_RATIO` may need to drop below 2 or scale down as session length grows. |
+| **No weekly cap exists in v2** | `CLAUDE.md` specifies a user-set weekly hard cap that converts money-bleed into lockout; only the per-session cap (€30) was built. Nothing currently bounds a bad week — an hour a day at €15/h is €105 of penalties before any redemption. **Open:** implement the weekly cap before real cards, or the §6 "not predatory" answer has a hole in it. |
 | Google Play rejection | Engineered off AccessibilityService already. **Open:** `specialUse` foreground services still draw manual review. |
+| **iOS ships coarser, and the entitlement is not ours to schedule** | iOS has no foreground-app API, so the build uses Screen Time (FamilyControls / DeviceActivity) and bills per usage threshold rather than per minute; the monitor extension has no dependable network access, so state reconciles on next app open and the dead man's switch is weaker there. The 2-of-3 engagement vote cannot be ported, so an idle-but-open app is billable on iOS — bad in combination with a permanent 20% burn. **Open:** the FamilyControls distribution entitlement needs Apple's approval, and review may question charging real money against an on-device restriction. Calendar risk, not engineering risk. |
 | "You charged me for deleting an app" chargebacks | Consent evidence per contract; breach charge is idempotent. **Open:** needs an ~18h warning email and a reinstall-to-cure grace window — a phone dead in a drawer currently looks identical to deletion. |
 | Holding user funds | Avoided by design — Stripe holds, we capture or cancel; Costly never takes custody. Stays true as long as we do not escrow penalties into a user-owned pot (§7). |
 | EU consumer law on the breach fee | Framed correctly it is ordinary ground: the user is *suggested* a range, sets the amount themselves (€0–€1000, zero allowed), then signs a fixed 7- or 30-day term with that number as the early-breach fee — the shape of a phone-plan termination fee or a lease break, not an imposed penalty. Self-pricing and the permitted €0 both help the unfair-terms analysis. **Open:** whether the term survives Directive 93/13/EEC scrutiny. |

@@ -1,0 +1,150 @@
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0B0D0A;font-family:Inter,system-ui,sans-serif;padding:56px 40px;
+       display:flex;gap:64px;align-items:flex-start;justify-content:center}
+  .col{display:flex;flex-direction:column;align-items:center;gap:18px}
+  .cap{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.22em;color:#2EDB6A}
+  .sub{font-size:13px;color:#98A090;max-width:340px;text-align:center;line-height:1.55}
+  .phone{width:340px;height:700px;border-radius:36px;background:#000;position:relative;
+         overflow:hidden;border:3px solid #22261D;box-shadow:0 24px 60px rgba(0,0,0,.7)}
+
+  /* ---- generic short-video frame ---- */
+  .feed{position:absolute;inset:0;overflow:hidden}
+  .status{position:absolute;top:0;left:0;right:0;height:30px;display:flex;align-items:center;
+          justify-content:space-between;padding:0 20px;font-size:11px;color:rgba(255,255,255,.85);
+          font-family:'JetBrains Mono',monospace;z-index:4;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+  .rail{position:absolute;right:12px;bottom:160px;display:flex;flex-direction:column;gap:19px;z-index:4}
+  .rail i{display:block;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);
+          box-shadow:0 2px 8px rgba(0,0,0,.4)}
+  .meta{position:absolute;left:16px;right:66px;bottom:58px;color:#fff;z-index:4;
+        text-shadow:0 1px 6px rgba(0,0,0,.85)}
+  .meta b{display:block;font-size:14px;font-weight:700;margin-bottom:5px}
+  .meta p{font-size:12px;line-height:1.45;color:rgba(255,255,255,.82)}
+  .scrub{position:absolute;left:14px;right:14px;bottom:48px;height:2.5px;border-radius:2px;
+         background:rgba(255,255,255,.25);z-index:4}
+  .scrub em{display:block;width:42%;height:100%;border-radius:2px;background:#fff}
+  .navbar{position:absolute;left:0;right:0;bottom:0;height:44px;background:rgba(0,0,0,.6);
+          display:flex;align-items:center;justify-content:space-around;z-index:4}
+  .navbar i{width:19px;height:19px;border-radius:5px;background:rgba(255,255,255,.3)}
+
+  /* ---- THE STRIP: as thin as it can be and still say the number ----
+     Card DNA kept from CatWidget (border, hard shadow, TONE_BG); only the
+     paws of the cat show, hanging into the bar from above. */
+  .wrap{position:absolute;top:36px;left:0;right:0;display:flex;flex-direction:column;
+        align-items:center;gap:5px;z-index:9}
+  .strip{display:flex;align-items:stretch;gap:9px;height:30px;overflow:hidden;
+         border:3px solid rgba(11,13,10,.72);border-radius:11px;padding:0 11px;
+         box-shadow:4px 4px 0 0 rgba(0,0,0,.5)}
+  .strip svg{flex:none;display:block;margin-top:-1px}
+  .amt{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700;
+       color:#0B0D0A;line-height:24px;letter-spacing:.01em;white-space:nowrap;align-self:center}
+  .say{font-size:11px;font-weight:800;color:#0B0D0A;white-space:nowrap;
+       border:3px solid rgba(11,13,10,.72);border-radius:9px;padding:2px 9px;
+       box-shadow:4px 4px 0 0 rgba(0,0,0,.5)}
+  .rot-a{transform:rotate(-1.2deg)}
+  .rot-b{transform:rotate(1deg)}
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="scene" viewBox="0 0 340 700" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2b1f3d"/><stop offset=".42" stop-color="#7a3b52"/>
+        <stop offset=".62" stop-color="#c9663f"/><stop offset=".78" stop-color="#e8a04a"/>
+      </linearGradient>
+      <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2a2028"/><stop offset="1" stop-color="#15121a"/>
+      </linearGradient>
+    </defs>
+    <rect width="340" height="700" fill="url(#sky)"/>
+    <circle cx="170" cy="430" r="52" fill="#ffd08a" opacity=".95"/>
+    <g fill="#241b2c">
+      <rect x="-4" y="300" width="52" height="200"/><rect x="44" y="352" width="40" height="148"/>
+      <rect x="88" y="322" width="34" height="178"/><rect x="214" y="336" width="44" height="164"/>
+      <rect x="252" y="296" width="38" height="204"/><rect x="288" y="344" width="56" height="156"/>
+    </g>
+    <g fill="#ffd9a0" opacity=".5">
+      <rect x="6" y="318" width="7" height="9"/><rect x="22" y="340" width="7" height="9"/>
+      <rect x="54" y="368" width="7" height="9"/><rect x="96" y="338" width="7" height="9"/>
+      <rect x="262" y="312" width="7" height="9"/><rect x="298" y="360" width="7" height="9"/>
+    </g>
+    <rect y="498" width="340" height="202" fill="url(#road)"/>
+    <g stroke="#c9a06a" stroke-width="5" opacity=".45" stroke-linecap="round">
+      <line x1="170" y1="512" x2="170" y2="540"/><line x1="170" y1="562" x2="170" y2="602"/>
+      <line x1="170" y1="632" x2="170" y2="695"/>
+    </g>
+    <g fill="#171320">
+      <circle cx="196" cy="396" r="17"/><path d="M180,416 h32 l7,66 h-46 Z"/>
+      <path d="M186,482 l-9,74 h13 l11,-56 l9,56 h13 l-8,-74 Z"/>
+      <path d="M180,424 l-16,42 6,3 18,-38 Z"/><path d="M212,424 l17,40 -6,3 -19,-36 Z"/>
+    </g>
+    <ellipse cx="196" cy="562" rx="34" ry="7" fill="#000" opacity=".35"/>
+  </symbol>
+
+  <!-- Left and right paw clusters, cropped to the bars only.
+       Rect geometry verbatim from Cat.tsx: 6 wide, 18 tall, rx 3. -->
+  <symbol id="paw-l" viewBox="26.6 60 20.8 18">
+    <g fill="#0a0a0a">
+      <rect x="27" y="60" width="6" height="18" rx="3"/>
+      <rect x="34" y="60" width="6" height="18" rx="3"/>
+      <rect x="41" y="60" width="6" height="18" rx="3"/>
+    </g>
+  </symbol>
+  <symbol id="paw-r" viewBox="52.6 60 20.8 18">
+    <g fill="#0a0a0a">
+      <rect x="53" y="60" width="6" height="18" rx="3"/>
+      <rect x="60" y="60" width="6" height="18" rx="3"/>
+      <rect x="67" y="60" width="6" height="18" rx="3"/>
+    </g>
+  </symbol>
+</svg>
+
+<div class="col">
+  <div class="cap">OVERLAY // METERING</div>
+  <div class="phone">
+    <div class="feed">
+      <svg width="340" height="700"><use href="#scene"/></svg>
+      <div class="status"><span>12:25</span><span>&#9679;&#9679;&#9679;</span></div>
+      <div class="rail"><i></i><i></i><i></i><i></i></div>
+      <div class="meta"><b>@someone</b><p>golden hour hits different &#9834;</p></div>
+      <div class="scrub"><em></em></div>
+      <div class="navbar"><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="wrap">
+      <div class="strip rot-a" style="background:#d9a441">
+        <svg width="20" height="17"><use href="#paw-l"/></svg>
+        <div class="amt">1,75 &euro;</div>
+        <svg width="20" height="17"><use href="#paw-r"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="sub"><b style="color:#F2F4EF">Metering.</b> 30px tall. Only the paws show,
+    hanging in from above. The number is the whole message.</div>
+</div>
+
+<div class="col">
+  <div class="cap">OVERLAY // &euro;10 CROSSED</div>
+  <div class="phone">
+    <div class="feed">
+      <svg width="340" height="700"><use href="#scene"/></svg>
+      <div class="status"><span>12:25</span><span>&#9679;&#9679;&#9679;</span></div>
+      <div class="rail"><i></i><i></i><i></i><i></i></div>
+      <div class="meta"><b>@someone</b><p>golden hour hits different &#9834;</p></div>
+      <div class="scrub"><em></em></div>
+      <div class="navbar"><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="wrap">
+      <div class="strip rot-b" style="background:#ef4444">
+        <svg width="20" height="17"><use href="#paw-l"/></svg>
+        <div class="amt">10,40 &euro;</div>
+        <svg width="20" height="17"><use href="#paw-r"/></svg>
+      </div>
+      <div class="say rot-b" style="background:#ef4444">That&rsquo;s so much money.</div>
+    </div>
+  </div>
+  <div class="sub"><b style="color:#F2F4EF">Past &euro;10.</b> Same strip, red, and one line
+    drops underneath. It goes away again when the number does.</div>
+</div>

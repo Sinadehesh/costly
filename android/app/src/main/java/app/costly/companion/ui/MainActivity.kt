@@ -44,6 +44,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -82,6 +83,8 @@ import app.costly.companion.ui.theme.Gold
 import app.costly.companion.ui.theme.Line
 import app.costly.companion.ui.theme.Muted
 import app.costly.companion.ui.theme.Surface2
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import app.costly.companion.work.HealthSyncWorker
 import app.costly.companion.work.HeartbeatWorker
 import kotlinx.coroutines.launch
@@ -329,7 +332,17 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
                 .isIgnoringBatteryOptimizations(context.packageName),
         )
     }
-    var syncRequested by remember { mutableStateOf(false) }
+    /**
+     * The live state of the manual sync, read from WorkManager rather than from
+     * a local flag. The flag version latched to "Syncing" on first tap and never
+     * moved again, so a worker that failed — or one that no-opped because the
+     * device was never linked — looked exactly like one still running.
+     */
+    val syncInfos by WorkManager.getInstance(context)
+        .getWorkInfosForUniqueWorkFlow(HealthSyncWorker.ONESHOT_NAME)
+        .collectAsState(initial = emptyList())
+    val syncState = syncInfos.lastOrNull()?.state
+
     // Shown only after a permission trip comes back empty-handed — the most
     // likely cause by far is the restricted-settings block.
     var showBlockedHelp by remember { mutableStateOf(false) }
@@ -593,14 +606,32 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
             }
         }
 
-        if (armed) {
+        // Only offer the manual sync when there is an account to sync to. In god
+        // mode Prefs.userId is null and the worker has nothing to send, so the
+        // button could only ever lie. completeLink() already skips scheduling
+        // health sync for the same reason; this is that rule applied to the UI.
+        if (armed && Prefs.userId(context) != null) {
             Spacer(Modifier.height(8.dp))
             PrimaryButton(
-                if (syncRequested) "Syncing. check the dashboard" else "Sync my walk now",
-                color = Gold,
-            ) {
-                HealthSyncWorker.syncNow(context)
-                syncRequested = true
+                when (syncState) {
+                    WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING -> "Syncing your walk…"
+                    WorkInfo.State.SUCCEEDED -> "Walk synced. Sync again"
+                    WorkInfo.State.FAILED -> "Sync failed. Tap to retry"
+                    else -> "Sync my walk now"
+                },
+                color = if (syncState == WorkInfo.State.FAILED) Danger else Gold,
+                enabled = syncState != WorkInfo.State.RUNNING,
+            ) { HealthSyncWorker.syncNow(context) }
+
+            if (syncState == WorkInfo.State.FAILED) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Health Connect may be missing, or the step permission was refused. " +
+                        "Check step 3 above.",
+                    color = Muted,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                )
             }
         }
 

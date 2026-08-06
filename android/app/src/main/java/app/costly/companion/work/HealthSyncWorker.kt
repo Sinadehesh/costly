@@ -60,7 +60,16 @@ class HealthSyncWorker(context: Context, params: WorkerParameters) :
     override suspend fun doWork(): Result {
         // Unarmed — nothing to prove, nobody to punish. (The userId itself is no
         // longer sent anywhere; x-device-secret identifies us to the server.)
-        if (Prefs.userId(applicationContext) == null) return Result.success()
+        //
+        // This used to return success(), which was the worst available answer:
+        // the run finished in milliseconds, touched no network, logged nothing,
+        // and reported the same result as a real sync. From the outside that is
+        // indistinguishable from working, and it cost an afternoon of debugging
+        // a device that was behaving correctly. Say so, and fail.
+        if (Prefs.userId(applicationContext) == null) {
+            Log.w(TAG, "No userId — device is not linked to an account (god mode?). Nothing to sync.")
+            return Result.failure()
+        }
 
         if (HealthConnectClient.getSdkStatus(applicationContext) != HealthConnectClient.SDK_AVAILABLE) {
             Log.e(TAG, "Health Connect unavailable on this device — the system is blind to laziness")
@@ -170,7 +179,9 @@ class HealthSyncWorker(context: Context, params: WorkerParameters) :
     companion object {
         private const val TAG = "CostlyHealth"
         private const val PERIODIC_NAME = "costly-health-sync"
-        private const val ONESHOT_NAME = "costly-health-sync-now"
+
+        /** Public so the arming UI can observe the run and report its result. */
+        const val ONESHOT_NAME = "costly-health-sync-now"
 
         val REQUIRED_PERMISSIONS: Set<String> = setOf(
             HealthPermission.getReadPermission(ExerciseSessionRecord::class),

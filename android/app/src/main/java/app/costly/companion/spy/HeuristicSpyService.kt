@@ -158,7 +158,19 @@ class HeuristicSpyService : Service() {
 
         // God mode needs no account and no server, so the usual gates are the
         // one thing it skips. Everything below this point behaves identically.
-        if (!godMode && (!Prefs.isLinked(this) || Prefs.isPaymentFailed(this))) return
+        //
+        // This used to return in silence, which is the worst way to decline: a
+        // target app opens, nothing happens, no overlay, no log, and the app
+        // looks broken while behaving exactly as designed. Say which gate shut.
+        if (!godMode && (!Prefs.isLinked(this) || Prefs.isPaymentFailed(this))) {
+            Log.w(
+                TAG,
+                "Target $pkg opened but no session started: " +
+                    "linked=${Prefs.isLinked(this)} paymentFailed=${Prefs.isPaymentFailed(this)} " +
+                    "godMode=false. Sign in, or enable god mode to test detection.",
+            )
+            return
+        }
 
         // A cached id means we're resuming a session that survived a process
         // kill — no /start round-trip, so no fresh allowance figure; fall back
@@ -187,7 +199,14 @@ class HeuristicSpyService : Service() {
         networkDetector.bind(pkg)
 
         publishMeterLocked(counting = false) // opened, but nothing billed until confirmed
-        if (Settings.canDrawOverlays(this)) CostlyOverlayService.start(this)
+        if (Settings.canDrawOverlays(this)) {
+            CostlyOverlayService.start(this)
+        } else {
+            // The session is live and billing regardless; the user just cannot
+            // see it. Silence here means "the meter is invisible but running",
+            // which is the one state this product must never be in quietly.
+            Log.w(TAG, "Session live but SYSTEM_ALERT_WINDOW is not granted — metering with no visible overlay")
+        }
 
         // Sensor gate ON: collect gyro into the detector until this job cancels.
         sensorJob = scope.launch {

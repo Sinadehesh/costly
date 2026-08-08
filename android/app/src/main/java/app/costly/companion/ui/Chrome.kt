@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -29,6 +30,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.costly.companion.ui.theme.Accent
+import app.costly.companion.ui.theme.Burn
+import app.costly.companion.ui.theme.Danger
+import app.costly.companion.ui.theme.Faint
+import app.costly.companion.ui.theme.Fg
+import app.costly.companion.ui.theme.Line
+import app.costly.companion.ui.theme.Muted
+import app.costly.companion.ui.theme.Surface
+import app.costly.companion.ui.theme.Surface2
 
 /**
  * The web app's chrome, in Compose.

@@ -479,6 +479,18 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
     val steps = listOf(monitoringOn, overlayOn, healthGranted, batteryExempt)
     val doneCount = steps.count { it }
 
+    // Once the meter can actually run, the checklist has nothing left to say.
+    // Show the dashboard instead — the same screen the web serves, so the two
+    // halves of the product stop looking like different apps. Usage Access and
+    // the overlay are the two that matter; the rest are shown as warnings
+    // inside the dashboard rather than as a wall of unfinished steps.
+    if (armed && overlayOn) {
+        Box(Modifier.fillMaxSize().background(Bg)) {
+            DashboardScreen(armed = true)
+        }
+        return
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()

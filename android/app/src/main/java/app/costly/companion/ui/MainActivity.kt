@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -357,8 +358,20 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
     }
 
     fun startEngineIfReady() {
-        if (Prefs.isLinked(context) && UsageAccess.isGranted(context)) {
+        // God mode counts as ready. isLinked() is "we hold a device secret",
+        // which god mode deliberately never obtains — so gating the engine on
+        // it alone meant god mode armed the UI and started nothing. The whole
+        // point of the mode is to run the detector, meter and overlay with no
+        // account, and it could not do any of the three.
+        val ready = Prefs.isLinked(context) || Prefs.isGodMode(context)
+        if (ready && UsageAccess.isGranted(context)) {
             HeuristicSpyService.start(context)
+        } else {
+            Log.w(
+                "CostlySpy",
+                "Engine not started: linked=${Prefs.isLinked(context)} " +
+                    "godMode=${Prefs.isGodMode(context)} usageAccess=${UsageAccess.isGranted(context)}",
+            )
         }
     }
 

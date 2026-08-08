@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ANCHOR_TIER_COUNT,
+  DEFAULT_WEEKLY_CAP_CENTS,
+  MAX_WEEKLY_CAP_CENTS,
+  MIN_WEEKLY_CAP_CENTS,
+  applyWeeklyCap,
+  weeklyHeadroomCents,
   BREACH_AFTER_HOURS,
   BREACH_GRACE_HOURS,
   BURN_SHARE,
@@ -438,5 +443,60 @@ describe('constants', () => {
     // A ceiling, not a recommendation — but it must exist, or the allowance
     // could be set high enough to switch the meter off permanently.
     expect(MAX_DAILY_FREE_MINUTES).toBe(120);
+  });
+});
+
+describe('the weekly cap', () => {
+  it('leaves the whole cap spendable on a fresh week', () => {
+    expect(weeklyHeadroomCents(0, 1000)).toBe(1000);
+  });
+
+  it('shrinks as the week is spent, and never goes negative', () => {
+    expect(weeklyHeadroomCents(400, 1000)).toBe(600);
+    expect(weeklyHeadroomCents(1000, 1000)).toBe(0);
+    // A week can overshoot if a hold was captured late; headroom floors at 0
+    // rather than handing back a negative that would read as credit.
+    expect(weeklyHeadroomCents(1500, 1000)).toBe(0);
+  });
+
+  it('charges the full penalty while the week has room', () => {
+    expect(applyWeeklyCap(300, 0, 1000)).toEqual({
+      chargeableCents: 300,
+      capReached: false,
+    });
+  });
+
+  it('clamps the charge that would cross the cap, and reports it', () => {
+    // Owed 400, only 250 of the week is left: bill 250 and lock, never 400.
+    expect(applyWeeklyCap(400, 750, 1000)).toEqual({
+      chargeableCents: 250,
+      capReached: true,
+    });
+  });
+
+  it('charges nothing once the cap is spent', () => {
+    expect(applyWeeklyCap(400, 1000, 1000)).toEqual({
+      chargeableCents: 0,
+      capReached: true,
+    });
+  });
+
+  it('treats an exactly-fitting penalty as reaching the cap', () => {
+    // Spending the last cent still locks the week — the next session must not
+    // open a billable meter with zero headroom behind it.
+    expect(applyWeeklyCap(250, 750, 1000)).toEqual({
+      chargeableCents: 250,
+      capReached: true,
+    });
+  });
+
+  it('never bills a negative penalty', () => {
+    expect(applyWeeklyCap(-50, 0, 1000).chargeableCents).toBe(0);
+  });
+
+  it('holds the settled bounds', () => {
+    expect(DEFAULT_WEEKLY_CAP_CENTS).toBe(1000);
+    expect(MIN_WEEKLY_CAP_CENTS).toBeLessThan(DEFAULT_WEEKLY_CAP_CENTS);
+    expect(MAX_WEEKLY_CAP_CENTS).toBeGreaterThan(DEFAULT_WEEKLY_CAP_CENTS);
   });
 });

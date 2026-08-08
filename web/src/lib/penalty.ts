@@ -48,6 +48,50 @@ export const MAX_DAILY_FREE_MINUTES = 120;
 export const DAILY_FREE_MINUTE_OPTIONS = [0, 5, 15, 30, 60] as const;
 
 /**
+ * THE WEEKLY CAP. The most a week is allowed to cost, ever.
+ *
+ * Without it the meter is unbounded: an hour a day of overage at a €15/hour
+ * self-set rate is €105 of penalties a week, and the 20% that burns is real
+ * money even for someone who walks every minute back. A cap converts
+ * money-bleed into lockout, which is a stronger intervention than continuing
+ * to bill, and it is the only thing that makes "the most you can lose is a
+ * number you chose" true rather than aspirational.
+ */
+export const WEEKLY_CAP_OPTIONS_CENTS = [500, 1000, 1500, 2000, 3000] as const;
+export const DEFAULT_WEEKLY_CAP_CENTS = 1000;
+export const MIN_WEEKLY_CAP_CENTS = 200;
+export const MAX_WEEKLY_CAP_CENTS = 10_000;
+
+/**
+ * How much of this week's cap is still spendable.
+ *
+ * `spentCents` is everything the week has already cost — burns, captured
+ * purgatory, breach fees, laziness charges. Purgatory still on hold counts as
+ * spent: it is at risk right now, and a cap that ignored it could let a week
+ * end up owing far more than the number the user agreed to.
+ */
+export function weeklyHeadroomCents(spentCents: number, capCents: number): number {
+  return Math.max(0, capCents - Math.max(0, spentCents));
+}
+
+/**
+ * Clamp a penalty to what is left of the week.
+ *
+ * Returns the chargeable amount and whether this is the charge that exhausts
+ * the cap — the caller uses that to lock the vice apps for the rest of the
+ * week instead of billing further.
+ */
+export function applyWeeklyCap(
+  penaltyCents: number,
+  spentCents: number,
+  capCents: number,
+): { chargeableCents: number; capReached: boolean } {
+  const headroom = weeklyHeadroomCents(spentCents, capCents);
+  const chargeableCents = Math.min(Math.max(0, penaltyCents), headroom);
+  return { chargeableCents, capReached: chargeableCents >= headroom };
+}
+
+/**
  * The user states what one hour of their time is worth; the meter charges
  * exactly that, minute by minute. Floored at 1 cent so the rate is never 0.
  */

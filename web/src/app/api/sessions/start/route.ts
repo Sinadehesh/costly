@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireDevice } from '@/lib/deviceAuth';
-import { freeSecondsRemaining } from '@/lib/penalty';
+import { freeSecondsRemaining, weeklyHeadroomCents } from '@/lib/penalty';
 import { localCalendarDay } from '@/lib/localDay';
+import { weeklySpentCents } from '@/lib/weeklySpend';
 
 const bodySchema = z.object({
   appPackage: z.string().min(1), // e.g. "com.zhiliaoapp.musically"
@@ -32,6 +33,22 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: 'payment_required', settleUpUrl: user.settleUpUrl },
       { status: 402 },
+    );
+  }
+
+  // The weekly cap is a lockout, not a discount: once the week has cost what
+  // the user said it may, the vice apps are shut for the rest of it rather
+  // than billed further. Enforced here as well as on the device, because the
+  // spy is always-on and the device is the thing we least control.
+  const spent = await weeklySpentCents(auth.userId, user.timezone);
+  if (weeklyHeadroomCents(spent, user.weeklyCapCents) <= 0) {
+    return NextResponse.json(
+      {
+        error: 'weekly_cap_reached',
+        weeklyCapCents: user.weeklyCapCents,
+        spentCents: spent,
+      },
+      { status: 423 }, // Locked
     );
   }
 

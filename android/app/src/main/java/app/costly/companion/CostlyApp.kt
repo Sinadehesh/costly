@@ -29,12 +29,17 @@ class CostlyApp : Application(), Configuration.Provider {
         // Every launch is proof of life — don't wait for the 12h window.
         if (Prefs.isLinked(this)) {
             HeartbeatWorker.pingNow(this)
-            // Re-arm the spy if fully set up AND not locked into Settle Up.
-            // (Foreground process-start is allowed; a background refusal is
-            // swallowed by start().)
-            if (!Prefs.isPaymentFailed(this) && UsageAccess.isGranted(this)) {
-                HeuristicSpyService.start(this)
-            }
+        }
+        // Re-arm the spy if set up AND not locked into Settle Up. God mode is
+        // armed too: it holds no device secret by design, so hanging this off
+        // isLinked() alone left the engine dead on every relaunch in god mode.
+        // (Foreground process-start is allowed; a background refusal is
+        // swallowed by start().)
+        if ((Prefs.isLinked(this) || Prefs.isGodMode(this)) &&
+            !Prefs.isPaymentFailed(this) &&
+            UsageAccess.isGranted(this)
+        ) {
+            HeuristicSpyService.start(this)
         }
     }
 }

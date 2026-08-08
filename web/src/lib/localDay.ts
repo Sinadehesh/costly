@@ -49,3 +49,19 @@ export function localCalendarDay(now: Date, timeZone: string): Date {
   const { year, month, day } = localNowParts(now, timeZone);
   return new Date(Date.UTC(year, month - 1, day));
 }
+
+/**
+ * The Monday that starts the user's current local week, as a UTC-midnight
+ * Date — the window the weekly cap is measured over.
+ *
+ * Built from the day label rather than from the raw instant, so a user in a
+ * timezone where it is already Monday gets the new week's allowance and one
+ * where it is still Sunday does not. Monday because a cap that resets on
+ * Sunday night is a cap that resets mid-weekend, which is when it matters.
+ */
+export function localWeekStart(now: Date, timeZone: string): Date {
+  const day = localCalendarDay(now, timeZone);
+  // getUTCDay(): 0=Sunday … 6=Saturday. Monday-based offset: Sunday is 6 back.
+  const offset = (day.getUTCDay() + 6) % 7;
+  return new Date(day.getTime() - offset * 86_400_000);
+}

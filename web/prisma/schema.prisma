@@ -25,10 +25,11 @@ datasource db {
 }
 
 enum SessionStatus {
-  ACTIVE   // timer running on device; heartbeats arriving
-  HOLD     // session ended: 20% captured, 80% on pre-auth hold, redemption pending
-  RELEASED // walking goal met in time → purgatory hold cancelled, funds released
-  CAPTURED // 24h deadline missed → purgatory hold captured, funds lost
+  ACTIVE        // timer running on device; heartbeats arriving
+  HOLD          // session ended: 20% captured, 80% on pre-auth hold, redemption pending
+  RELEASED      // walking goal met in time → purgatory hold cancelled, funds released
+  CAPTURED      // 24h deadline missed → purgatory hold captured, funds lost
+  CHARGE_FAILED // off-session confirm refused (SCA / decline); owed, not held
 }
 
 enum RedemptionStatus {
@@ -74,6 +75,12 @@ model User {
   // ── Safety rails ───────────────────────────────────────────────────────
   sessionCapCents Int @default(3000) // hard financial stop per session (€30)
   idleTimeoutSecs Int @default(60)   // pause timer after N s without a scroll event
+
+  // The most a week may cost, ever. When it is reached the vice apps lock for
+  // the rest of the week instead of billing further — money-bleed converted
+  // into lockout, which is the stronger intervention and the only thing that
+  // makes "the most you can lose is a number you chose" literally true.
+  weeklyCapCents Int @default(1000) // €10
 
   // ── Daily free allowance ───────────────────────────────────────────────
   // Minutes of detected scrolling per LOCAL day that cost nothing: no money,
@@ -329,6 +336,11 @@ model Session {
 
   stripeBurnPaymentIntentId      String? @unique
   stripePurgatoryPaymentIntentId String? @unique
+
+  // Why an off-session confirm was refused (SCA `authentication_required`, a
+  // decline_code, …). Set with status CHARGE_FAILED so Settle Up can say what
+  // happened instead of showing an unexplained lockout.
+  chargeFailureCode String?
 
   redemption RedemptionTask?
 

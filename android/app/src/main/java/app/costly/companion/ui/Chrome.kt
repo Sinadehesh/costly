@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.costly.companion.ui.theme.Accent
+import app.costly.companion.ui.theme.Bg
 import app.costly.companion.ui.theme.Burn
 import app.costly.companion.ui.theme.Danger
 import app.costly.companion.ui.theme.Faint
@@ -147,6 +149,36 @@ fun TerminalHeader(armed: Boolean, clock: String) {
                 )
             }
         }
+    }
+}
+
+/**
+ * The shared CTA. MainActivity keeps a private one of its own from before
+ * these files existed; this is the version the screens outside it use.
+ */
+@Composable
+fun CtaButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    color: Color = Accent,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (enabled) color else Surface2)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text,
+            color = if (enabled) Bg else Faint,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 15.sp,
+        )
     }
 }
 

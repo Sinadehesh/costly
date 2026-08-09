@@ -101,8 +101,13 @@ export async function POST(req: Request) {
     body.deviceId = device.id;
   }
 
+  // Same as the password route: the companion cannot read a Set-Cookie from a
+  // Retrofit response, so the token also travels in the body.
+  const sessionToken = await signSession(user.id);
+  body.sessionToken = sessionToken;
+
   const res = NextResponse.json(body);
-  res.cookies.set(SESSION_COOKIE, await signSession(user.id), {
+  res.cookies.set(SESSION_COOKIE, sessionToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',

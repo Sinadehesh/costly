@@ -2,6 +2,7 @@ package app.costly.companion.net
 
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 
@@ -28,6 +29,20 @@ interface CostlyApi {
      */
     @POST("api/device/link")
     suspend fun linkDevice(@Body body: LinkDeviceRequest): LinkDeviceResponse
+
+    /**
+     * Submit the contract. Session-authenticated (Bearer), not device — the
+     * device secret does not exist yet at this point in the flow.
+     */
+    @POST("api/onboarding")
+    suspend fun onboard(
+        @Header("Authorization") bearer: String,
+        @Body body: OnboardingRequest,
+    ): OnboardingResponse
+
+    /** Client secret for saving a card off-session. */
+    @POST("api/stripe/setup-intent")
+    suspend fun setupIntent(@Header("Authorization") bearer: String): SetupIntentResponse
 
     @POST("api/sessions/start")
     suspend fun startSession(@Body body: StartSessionRequest): StartSessionResponse

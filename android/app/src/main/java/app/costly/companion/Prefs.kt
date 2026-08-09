@@ -12,6 +12,7 @@ object Prefs {
 
     private const val FILE = "costly"
     private const val KEY_USER_ID = "userId"
+    private const val KEY_SESSION_TOKEN = "sessionToken"
     private const val KEY_DEVICE_SECRET = "deviceSecret"
     private const val KEY_ACTIVE_SESSION = "activeSessionId"
     private const val KEY_RATE = "penaltyRateCentsPerMin"
@@ -43,6 +44,17 @@ object Prefs {
     // ── Device secret (Phase 1) — the x-device-secret from /api/device/link ──
 
     /** Presence of a device secret is what "armed/linked" now means. */
+    /**
+     * The session JWT, used as a Bearer for the routes that authenticate a
+     * person rather than a device — onboarding and the SetupIntent. Cleared
+     * with everything else on self-exclusion.
+     */
+    fun sessionToken(context: Context): String? =
+        sp(context).getString(KEY_SESSION_TOKEN, null)?.takeIf { it.isNotBlank() }
+
+    fun setSessionToken(context: Context, token: String) =
+        sp(context).edit().putString(KEY_SESSION_TOKEN, token).apply()
+
     fun deviceSecret(context: Context): String? =
         sp(context).getString(KEY_DEVICE_SECRET, null)?.takeIf { it.isNotBlank() }
 

@@ -31,6 +31,13 @@ data class LoginResponse(
     val onboarded: Boolean = false,
     // Returned exactly once. The password is never persisted; this is.
     val deviceSecret: String? = null,
+    /**
+     * The session JWT. The browser receives this as an httpOnly cookie, which
+     * Retrofit cannot read, so the server also puts it in the body. Onboarding
+     * is session-authenticated, not device-authenticated, so without this the
+     * companion can sign in and still not submit a contract.
+     */
+    val sessionToken: String? = null,
     val deviceId: String? = null,
 )
 
@@ -185,4 +192,36 @@ data class Redemption(
     val completedWalkingMinutes: Int,
     val deadline: String,
     val status: String,
+)
+
+data class AnchorItem(
+    val name: String,
+    val priceCents: Int,
+)
+
+/**
+ * The onboarding payload. Field-for-field with bodySchema in
+ * web/src/app/api/onboarding/route.ts — a mismatch here is a 400 the user
+ * sees as "something went wrong" with nothing in the log.
+ */
+data class OnboardingRequest(
+    val hourlyRateCents: Int,
+    val anchorItems: List<AnchorItem>,
+    val deletionFeeCents: Int,
+    val lockinDays: Int,
+    val termsVersion: String,
+    val acceptedImmediatePerformance: Boolean,
+    val withdrawalTermsVersion: String,
+    val dailyFreeMinutes: Int,
+    val sessionCapCents: Int? = null,
+)
+
+data class OnboardingResponse(
+    val ok: Boolean = true,
+    val userId: String? = null,
+)
+
+data class SetupIntentResponse(
+    val clientSecret: String,
+    val customerId: String? = null,
 )

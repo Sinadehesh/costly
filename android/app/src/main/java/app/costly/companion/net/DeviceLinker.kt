@@ -37,6 +37,7 @@ object DeviceLinker {
         )
         val secret = requireNotNull(response.deviceSecret) { "server returned no device secret" }
         Prefs.setLink(context, deviceSecret = secret, userId = response.userId)
+        response.sessionToken?.let { Prefs.setSessionToken(context, it) }
         Network.deviceSecret = secret
         Log.i(TAG, "Signed in with Google as ${response.userId}")
         Unit
@@ -53,6 +54,7 @@ object DeviceLinker {
             )
             val secret = requireNotNull(response.deviceSecret) { "server returned no device secret" }
             Prefs.setLink(context, deviceSecret = secret, userId = response.userId)
+            response.sessionToken?.let { Prefs.setSessionToken(context, it) }
             Network.deviceSecret = secret
             Log.i(TAG, "Signed in as ${response.userId}")
             Unit // pin the block's type to Result<Unit> (Log.i returns Int)

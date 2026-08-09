@@ -69,6 +69,7 @@ import app.costly.companion.Prefs
 import app.costly.companion.net.DeviceLinker
 import app.costly.companion.net.GoogleAuth
 import app.costly.companion.net.Network
+import app.costly.companion.net.OnboardingRequest
 import app.costly.companion.overlay.OverlayPermission
 import app.costly.companion.spy.HeuristicSpyService
 import app.costly.companion.spy.UsageAccess
@@ -347,6 +348,9 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
     // Shown only after a permission trip comes back empty-handed — the most
     // likely cause by far is the restricted-settings block.
     var showBlockedHelp by remember { mutableStateOf(false) }
+    // Bumped after a prefs write so the flow re-evaluates which screen is next.
+    var draftVersion by remember { mutableStateOf(0) }
+    var cardVersion by remember { mutableStateOf(0) }
 
     var paymentFailed by remember { mutableStateOf(Prefs.isPaymentFailed(context)) }
     DisposableEffect(Unit) {
@@ -436,6 +440,33 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
         return
     }
 
+    // ── The flow, in the web's order ──────────────────────────────────────
+    // contract (1-4) → sign in (5) → card (6) → permissions → dashboard.
+    //
+    // The contract comes FIRST and deliberately so: a person decides the terms
+    // while they still mean it, and only then is asked who they are. Asking for
+    // an account before they know what they are agreeing to is how the web
+    // version used to lose people.
+    if (!Prefs.contractDrafted(context)) {
+        OnboardingScreen(onDone = { draft ->
+            Prefs.saveDraft(
+                context,
+                OnboardingRequest(
+                    hourlyRateCents = draft.hourlyRateCents,
+                    anchorItems = draft.anchors,
+                    deletionFeeCents = draft.deletionFeeCents,
+                    lockinDays = draft.lockinDays,
+                    termsVersion = TERMS_VERSION,
+                    acceptedImmediatePerformance = true,
+                    withdrawalTermsVersion = WITHDRAWAL_TERMS_VERSION,
+                    dailyFreeMinutes = draft.dailyFreeMinutes,
+                ),
+            )
+            draftVersion++
+        })
+        return
+    }
+
     if (!linked) {
         SignInScreen(
             email = email,
@@ -469,6 +500,31 @@ fun ArmingScreen(pendingOtp: String? = null, onOtpConsumed: () -> Unit = {}) {
                 monitoringOn = UsageAccess.isGranted(context)
                 completeLink()
             },
+        )
+        return
+    }
+
+    // Signed in, contract drafted, no card yet: submit the contract (it needs
+    // the session that sign-in just produced) and then take the card.
+    if (!Prefs.isGodMode(context) && !Prefs.cardSaved(context)) {
+        LaunchedEffect(draftVersion, linked) {
+            if (!Prefs.contractSubmitted(context)) {
+                Prefs.draft(context)?.let { draft ->
+                    val token = Prefs.sessionToken(context)
+                    if (token != null) {
+                        runCatching { Network.api.onboard("Bearer $token", draft) }
+                            .onSuccess { Prefs.setContractSubmitted(context, true) }
+                            .onFailure { Log.w("CostlyLink", "contract submit failed", it) }
+                    }
+                }
+            }
+        }
+        CardScreen(
+            onSaved = {
+                Prefs.setCardSaved(context, true)
+                cardVersion++
+            },
+            onBack = { Prefs.clearDraft(context); draftVersion++ },
         )
         return
     }

@@ -54,6 +54,12 @@ gradle.taskGraph.whenReady {
 val googleWebClientId: String =
     (project.findProperty("costlyGoogleWebClientId") as String?) ?: ""
 
+// Stripe publishable key (pk_test_… / pk_live_…). Public by design — it is the
+// key the SDK uses to tokenise a card on-device so the PAN never touches us.
+// Set costlyStripePublishableKey in ~/.gradle/gradle.properties.
+val stripePublishableKey: String =
+    (project.findProperty("costlyStripePublishableKey") as String?) ?: ""
+
 android {
     namespace = "app.costly.companion"
     compileSdk = 35
@@ -69,6 +75,7 @@ android {
         // with -PcostlyDebugApiBaseUrl for a LAN IP or adb reverse setup.
         buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+        buildConfigField("String", "STRIPE_PUBLISHABLE_KEY", "\"$stripePublishableKey\"")
         // (Phase 1) The old shared DEVICE_API_SECRET build field is retired —
         // each device now gets a per-device secret from /api/device/link at
         // runtime, held in SharedPreferences, not baked into the build.
@@ -184,6 +191,14 @@ dependencies {
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+
+    // Stripe PaymentSheet — the card step, on-device.
+    //
+    // Pinned to 20.53.0 rather than the newest: 21.x raises the compileSdk
+    // floor, and this toolchain is on AGP 8.7.3 / compileSdk 35. The card PAN
+    // is tokenised inside the SDK and never reaches our process, which is what
+    // keeps the app out of PCI scope.
+    implementation("com.stripe:stripe-android:20.53.0")
 
     // Network
     implementation("com.squareup.retrofit2:retrofit:2.11.0")

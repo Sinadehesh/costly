@@ -66,8 +66,16 @@ export async function POST(req: Request) {
     body.deviceId = device.id;
   }
 
+  // The browser gets the session as an httpOnly cookie. The Android companion
+  // cannot read cookies from a Retrofit response, so the same token also goes
+  // in the body — requireSession() already accepts it as a Bearer header.
+  // Without this the companion can authenticate a device but can never call a
+  // session-authenticated route, which is every onboarding route there is.
+  const sessionToken = await signSession(user.id);
+  body.sessionToken = sessionToken;
+
   const res = NextResponse.json(body);
-  res.cookies.set(SESSION_COOKIE, await signSession(user.id), {
+  res.cookies.set(SESSION_COOKIE, sessionToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',

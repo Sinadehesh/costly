@@ -4,6 +4,7 @@ import android.content.Context
 import app.costly.companion.BuildConfig
 import android.content.SharedPreferences
 import app.costly.companion.net.AnchorLite
+import app.costly.companion.net.OnboardingRequest
 import app.costly.companion.net.Network
 import com.squareup.moshi.Types
 
@@ -12,6 +13,10 @@ object Prefs {
 
     private const val FILE = "costly"
     private const val KEY_USER_ID = "userId"
+    private const val KEY_SESSION_TOKEN = "sessionToken"
+    private const val KEY_DRAFT = "contractDraft"
+    private const val KEY_DRAFT_SUBMITTED = "contractSubmitted"
+    private const val KEY_CARD_SAVED = "cardSaved"
     private const val KEY_DEVICE_SECRET = "deviceSecret"
     private const val KEY_ACTIVE_SESSION = "activeSessionId"
     private const val KEY_RATE = "penaltyRateCentsPerMin"
@@ -43,6 +48,49 @@ object Prefs {
     // ── Device secret (Phase 1) — the x-device-secret from /api/device/link ──
 
     /** Presence of a device secret is what "armed/linked" now means. */
+    /**
+     * The session JWT, used as a Bearer for the routes that authenticate a
+     * person rather than a device — onboarding and the SetupIntent. Cleared
+     * with everything else on self-exclusion.
+     */
+    // ── The contract draft ────────────────────────────────────────────────
+    // Held on the device between signing it and being able to submit it: the
+    // contract is filled in BEFORE sign-in (deliberately — you decide the terms
+    // while you still mean them), but /api/onboarding needs the session that
+    // sign-in produces. Without somewhere to park it, the whole form would have
+    // to be re-entered after signing in.
+    private val draftAdapter by lazy { Network.moshi.adapter(OnboardingRequest::class.java) }
+
+    fun draft(context: Context): OnboardingRequest? {
+        val json = sp(context).getString(KEY_DRAFT, null) ?: return null
+        return runCatching { draftAdapter.fromJson(json) }.getOrNull()
+    }
+
+    fun contractDrafted(context: Context): Boolean = sp(context).contains(KEY_DRAFT)
+
+    fun saveDraft(context: Context, draft: OnboardingRequest) =
+        sp(context).edit().putString(KEY_DRAFT, draftAdapter.toJson(draft)).apply()
+
+    fun clearDraft(context: Context) =
+        sp(context).edit().remove(KEY_DRAFT).remove(KEY_DRAFT_SUBMITTED).apply()
+
+    fun contractSubmitted(context: Context): Boolean =
+        sp(context).getBoolean(KEY_DRAFT_SUBMITTED, false)
+
+    fun setContractSubmitted(context: Context, done: Boolean) =
+        sp(context).edit().putBoolean(KEY_DRAFT_SUBMITTED, done).apply()
+
+    fun cardSaved(context: Context): Boolean = sp(context).getBoolean(KEY_CARD_SAVED, false)
+
+    fun setCardSaved(context: Context, saved: Boolean) =
+        sp(context).edit().putBoolean(KEY_CARD_SAVED, saved).apply()
+
+    fun sessionToken(context: Context): String? =
+        sp(context).getString(KEY_SESSION_TOKEN, null)?.takeIf { it.isNotBlank() }
+
+    fun setSessionToken(context: Context, token: String) =
+        sp(context).edit().putString(KEY_SESSION_TOKEN, token).apply()
+
     fun deviceSecret(context: Context): String? =
         sp(context).getString(KEY_DEVICE_SECRET, null)?.takeIf { it.isNotBlank() }
 
